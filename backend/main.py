@@ -831,6 +831,17 @@ async def get_database_status():
     return db_manager.get_database_status()
 
 
+@app.post("/api/v1/mongodb/sync")
+async def trigger_mongodb_sync():
+    """
+    Triggers an immediate full synchronization of all statutory datasets and live logs
+    to MongoDB Atlas collections.
+    """
+    sync_result = db_manager.sync_all_to_mongodb()
+    return sync_result
+
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

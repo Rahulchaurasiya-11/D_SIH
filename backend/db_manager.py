@@ -1,8 +1,8 @@
 """
 Database & CSV Storage Manager for Legal Metrology Auditing System
 Provides dual-dataset support:
-1. Master Statutory Knowledge Base (CSV 1 / MongoDB): Rules, Approved Units, Prohibited Imperial Units, Tax Clauses.
-2. Temporary Live Extracted Product Audits (CSV 2): Dynamic FIFO rolling buffer (capped at max N records)
+1. Master Statutory Knowledge Base (CSV 1 / MongoDB Atlas): Rules, Approved Units, Prohibited Imperial Units, Tax Clauses.
+2. Temporary Live Extracted Product Audits (CSV 2 / MongoDB): Dynamic FIFO rolling buffer (capped at max N records)
    to ensure system storage never overflows on continuous scanning.
 """
 
@@ -29,6 +29,10 @@ LIVE_AUDITS_CSV_PATH = os.path.join(DATA_DIR, "recent_audits_live.csv")
 # Maximum records to keep in temporary live audits CSV (FIFO buffer)
 MAX_LIVE_AUDIT_RECORDS = 50
 
+# MongoDB Configuration
+DEFAULT_MONGODB_URI = "mongodb+srv://rahulteam320_db_user:cHeLpulLNmDxOzKK@cluster0.ynp7koc.mongodb.net/legal_metrology_db?retryWrites=true&w=majority&appName=Cluster0"
+DEFAULT_DB_NAME = "legal_metrology_db"
+
 
 class DatabaseManager:
     """
@@ -49,32 +53,51 @@ class DatabaseManager:
         self.approved_units_set: Set[str] = set()
         self.approved_units_list: List[Dict[str, str]] = []
         self.prohibited_units_dict: Dict[str, str] = {}
+        self.prohibited_units_list: List[Dict[str, str]] = []
         self.tax_suffix_patterns: List[str] = []
+        self.tax_suffix_list: List[Dict[str, str]] = []
         self.consumer_care_keywords: List[str] = []
+        self.consumer_care_list: List[Dict[str, str]] = []
         self.mfg_keywords: List[str] = []
+        self.mfg_keywords_list: List[Dict[str, str]] = []
 
-        # Optional MongoDB Client
+        # MongoDB Client
         self.mongo_client = None
         self.mongo_db = None
+        self.mongo_connected = False
         self._init_mongodb()
 
         # Initialize and load master datasets
         self.reload_master_datasets()
         self._ensure_live_audit_csv_initialized()
 
+        # Perform initial sync to MongoDB if connected
+        if self.mongo_connected:
+            self.sync_all_to_mongodb()
+
     def _init_mongodb(self):
-        """Initializes MongoDB connection if MONGODB_URI environment variable is provided."""
-        mongo_uri = os.environ.get("MONGODB_URI")
+        """Initializes MongoDB connection using environment variable or default URI."""
+        mongo_uri = os.environ.get("MONGODB_URI", DEFAULT_MONGODB_URI)
+        db_name = os.environ.get("MONGODB_DB_NAME", DEFAULT_DB_NAME)
+        
         if mongo_uri:
             try:
                 import pymongo
-                self.mongo_client = pymongo.MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
-                self.mongo_db = self.mongo_client.get_database("legal_metrology_db")
-                logger.info("MongoDB connection initialized successfully.")
+                self.mongo_client = pymongo.MongoClient(
+                    mongo_uri,
+                    serverSelectionTimeoutMS=5000,
+                    connectTimeoutMS=5000
+                )
+                # Verify connection with ping command
+                self.mongo_client.admin.command('ping')
+                self.mongo_db = self.mongo_client.get_database(db_name)
+                self.mongo_connected = True
+                logger.info(f"MongoDB connection established successfully to database: {db_name}")
             except Exception as e:
                 logger.warning(f"MongoDB connection notice: {e}. Falling back to CSV data store.")
                 self.mongo_client = None
                 self.mongo_db = None
+                self.mongo_connected = False
 
     def reload_master_datasets(self) -> Dict[str, Any]:
         """
@@ -89,27 +112,16 @@ class DatabaseManager:
             self.approved_units_set, self.approved_units_list = self._load_approved_units_csv(APPROVED_UNITS_CSV_PATH)
 
             # 3. Prohibited Imperial Units
-            self.prohibited_units_dict = self._load_prohibited_units_csv(PROHIBITED_UNITS_CSV_PATH)
+            self.prohibited_units_dict, self.prohibited_units_list = self._load_prohibited_units_csv(PROHIBITED_UNITS_CSV_PATH)
 
             # 4. Tax Suffix Clauses
-            self.tax_suffix_patterns = self._load_single_column_csv(TAX_SUFFIX_CSV_PATH, "phrase_regex")
+            self.tax_suffix_patterns, self.tax_suffix_list = self._load_full_csv(TAX_SUFFIX_CSV_PATH, "phrase_regex")
 
             # 5. Consumer Care Keywords
-            self.consumer_care_keywords = self._load_single_column_csv(CONSUMER_CARE_CSV_PATH, "keyword")
+            self.consumer_care_keywords, self.consumer_care_list = self._load_full_csv(CONSUMER_CARE_CSV_PATH, "keyword")
 
             # 6. Manufacturing Timeline Keywords
-            self.mfg_keywords = self._load_single_column_csv(MFG_KEYWORDS_CSV_PATH, "keyword")
-
-            # Sync to MongoDB if connected
-            if self.mongo_db is not None:
-                try:
-                    rules_col = self.mongo_db["master_rules"]
-                    rules_col.delete_many({})
-                    if self.master_rules:
-                        rules_col.insert_many(self.master_rules)
-                    logger.info(f"Synced {len(self.master_rules)} master rules to MongoDB.")
-                except Exception as sync_err:
-                    logger.warning(f"MongoDB sync notice: {sync_err}")
+            self.mfg_keywords, self.mfg_keywords_list = self._load_full_csv(MFG_KEYWORDS_CSV_PATH, "keyword")
 
             summary = {
                 "success": True,
@@ -119,10 +131,115 @@ class DatabaseManager:
                 "tax_suffix_patterns_count": len(self.tax_suffix_patterns),
                 "consumer_care_keywords_count": len(self.consumer_care_keywords),
                 "mfg_keywords_count": len(self.mfg_keywords),
+                "mongodb_connected": self.mongo_connected,
                 "timestamp": datetime.now().isoformat()
             }
             logger.info(f"Master datasets reloaded from CSV: {summary}")
             return summary
+
+    def sync_all_to_mongodb(self) -> Dict[str, Any]:
+        """
+        Syncs all CSV datasets and live logs into structured MongoDB collections:
+        1. `master_rules`
+        2. `approved_metric_units`
+        3. `prohibited_imperial_units`
+        4. `tax_suffix_clauses`
+        5. `consumer_care_keywords`
+        6. `mfg_date_keywords`
+        7. `database_metadata`
+        """
+        with self._lock:
+            if not self.mongo_connected or self.mongo_db is None:
+                self._init_mongodb()
+                if not self.mongo_connected or self.mongo_db is None:
+                    return {"success": False, "message": "MongoDB is not connected. Local CSV is active."}
+
+            try:
+                # 1. Master Rules Collection
+                if self.master_rules:
+                    rules_col = self.mongo_db["master_rules"]
+                    rules_col.delete_many({})
+                    # Insert fresh copy with created_at timestamp
+                    rules_docs = [dict(r, updated_at=datetime.now()) for r in self.master_rules]
+                    rules_col.insert_many(rules_docs)
+
+                # 2. Approved Metric Units Collection
+                if self.approved_units_list:
+                    units_col = self.mongo_db["approved_metric_units"]
+                    units_col.delete_many({})
+                    units_col.insert_many([dict(u, updated_at=datetime.now()) for u in self.approved_units_list])
+
+                # 3. Prohibited Imperial Units Collection
+                if self.prohibited_units_list:
+                    prohib_col = self.mongo_db["prohibited_imperial_units"]
+                    prohib_col.delete_many({})
+                    prohib_col.insert_many([dict(p, updated_at=datetime.now()) for p in self.prohibited_units_list])
+
+                # 4. Tax Suffix Clauses Collection
+                if self.tax_suffix_list:
+                    tax_col = self.mongo_db["tax_suffix_clauses"]
+                    tax_col.delete_many({})
+                    tax_col.insert_many([dict(t, updated_at=datetime.now()) for t in self.tax_suffix_list])
+
+                # 5. Consumer Care Keywords Collection
+                if self.consumer_care_list:
+                    care_col = self.mongo_db["consumer_care_keywords"]
+                    care_col.delete_many({})
+                    care_col.insert_many([dict(c, updated_at=datetime.now()) for c in self.consumer_care_list])
+
+                # 6. Mfg / Expiry Keywords Collection
+                if self.mfg_keywords_list:
+                    mfg_col = self.mongo_db["mfg_date_keywords"]
+                    mfg_col.delete_many({})
+                    mfg_col.insert_many([dict(m, updated_at=datetime.now()) for m in self.mfg_keywords_list])
+
+                # 7. Sync Existing Live Audit Logs from CSV
+                live_records = self.get_live_audit_history(limit=100)
+                if live_records:
+                    audits_col = self.mongo_db["live_audit_logs"]
+                    audits_col.delete_many({})
+                    audits_col.insert_many([dict(rec, synced_at=datetime.now()) for rec in live_records])
+
+                # 8. Metadata Collection
+                meta_col = self.mongo_db["database_metadata"]
+                meta_col.replace_one(
+                    {"system": "legal_metrology_compliance_ai"},
+                    {
+                        "system": "legal_metrology_compliance_ai",
+                        "last_synced_at": datetime.now(),
+                        "master_rules_count": len(self.master_rules),
+                        "approved_units_count": len(self.approved_units_list),
+                        "prohibited_units_count": len(self.prohibited_units_list),
+                        "tax_suffix_count": len(self.tax_suffix_list),
+                        "consumer_care_count": len(self.consumer_care_list),
+                        "mfg_keywords_count": len(self.mfg_keywords_list),
+                        "live_audits_count": len(live_records),
+                        "status": "HEALTHY",
+                        "statutory_act": "Legal Metrology (Packaged Commodities) Rules, 2011"
+                    },
+                    upsert=True
+                )
+
+                res = {
+                    "success": True,
+                    "message": "All Legal Metrology CSV datasets successfully synchronized to MongoDB Atlas.",
+                    "synced_collections": {
+                        "master_rules": len(self.master_rules),
+                        "approved_metric_units": len(self.approved_units_list),
+                        "prohibited_imperial_units": len(self.prohibited_units_list),
+                        "tax_suffix_clauses": len(self.tax_suffix_list),
+                        "consumer_care_keywords": len(self.consumer_care_list),
+                        "mfg_date_keywords": len(self.mfg_keywords_list),
+                        "live_audit_logs": len(live_records)
+                    },
+                    "timestamp": datetime.now().isoformat()
+                }
+                logger.info(f"MongoDB Full Sync Complete: {res}")
+                return res
+
+            except Exception as e:
+                logger.error(f"Error during MongoDB sync: {e}")
+                return {"success": False, "error": str(e)}
 
     def _load_rules_csv(self, file_path: str) -> List[Dict[str, Any]]:
         """Loads master statutory rules from CSV."""
@@ -183,9 +300,11 @@ class DatabaseManager:
 
         return (units_set, units_list) if units_set else self._get_default_approved_units()
 
-    def _load_prohibited_units_csv(self, file_path: str) -> Dict[str, str]:
+    def _load_prohibited_units_csv(self, file_path: str) -> Tuple[Dict[str, str], List[Dict[str, str]]]:
         """Loads prohibited non-metric imperial units from CSV."""
         prohibited_dict: Dict[str, str] = {}
+        prohibited_list: List[Dict[str, str]] = []
+
         if not os.path.exists(file_path):
             return self._get_default_prohibited_units()
 
@@ -196,32 +315,44 @@ class DatabaseManager:
                     symbol = row.get("unit_symbol", "").strip().lower()
                     name = row.get("unit_name", symbol).strip()
                     reason = row.get("prohibition_reason", "Prohibited under Rule 11").strip()
+                    severity = row.get("violation_severity", "CRITICAL").strip()
+                    penalty = row.get("penalty_clause", "").strip()
                     if symbol:
                         prohibited_dict[symbol] = f"{name} (Imperial Unit - {reason})"
+                        prohibited_list.append({
+                            "unit_symbol": symbol,
+                            "unit_name": name,
+                            "category": row.get("category", "Imperial"),
+                            "prohibition_reason": reason,
+                            "violation_severity": severity,
+                            "penalty_clause": penalty
+                        })
         except Exception as e:
             logger.error(f"Error reading prohibited units CSV {file_path}: {e}")
             return self._get_default_prohibited_units()
 
-        return prohibited_dict if prohibited_dict else self._get_default_prohibited_units()
+        return (prohibited_dict, prohibited_list) if prohibited_dict else self._get_default_prohibited_units()
 
-    def _load_single_column_csv(self, file_path: str, column_name: str) -> List[str]:
-        """Loads a list of strings from a single column of a CSV file."""
+    def _load_full_csv(self, file_path: str, primary_column: str) -> Tuple[List[str], List[Dict[str, str]]]:
+        """Loads full rows and a primary column list from a CSV file."""
         items: List[str] = []
+        rows: List[Dict[str, str]] = []
         if not os.path.exists(file_path):
-            return []
+            return [], []
 
         try:
             with open(file_path, mode="r", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
-                for row in reader:
-                    val = row.get(column_name, "").strip()
+                for r in reader:
+                    val = r.get(primary_column, "").strip()
                     if val:
                         items.append(val)
+                    rows.append(dict(r))
         except Exception as e:
-            logger.error(f"Error reading column {column_name} from {file_path}: {e}")
-            return []
+            logger.error(f"Error reading {file_path}: {e}")
+            return [], []
 
-        return items
+        return items, rows
 
     # =========================================================================
     # TEMPORARY LIVE AUDIT CSV (CSV 2) - ROLLING BUFFER (FIFO)
@@ -243,7 +374,8 @@ class DatabaseManager:
 
     def log_live_audit(self, audit_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Logs a single real-time audit record to the temporary live audit CSV (`recent_audits_live.csv`).
+        Logs a single real-time audit record to the temporary live audit CSV (`recent_audits_live.csv`)
+        and simultaneously pushes to MongoDB's `live_audit_logs` collection.
         Applies a rolling buffer (FIFO):
         When records exceed `max_live_records` (e.g. 50), older records roll off to protect storage.
         """
@@ -314,10 +446,10 @@ class DatabaseManager:
             except Exception as write_err:
                 logger.error(f"Error writing rolling live audit to CSV: {write_err}")
 
-            # Also log to MongoDB if active
-            if self.mongo_db is not None:
+            # Also log to MongoDB Atlas in real-time
+            if self.mongo_connected and self.mongo_db is not None:
                 try:
-                    self.mongo_db["live_audit_logs"].insert_one(dict(new_record))
+                    self.mongo_db["live_audit_logs"].insert_one(dict(new_record, created_at=datetime.now()))
                 except Exception as m_err:
                     logger.warning(f"MongoDB audit log notice: {m_err}")
 
@@ -344,7 +476,7 @@ class DatabaseManager:
             return records
 
     def clear_live_audit_history(self) -> bool:
-        """Clears/resets the temporary live audit CSV."""
+        """Clears/resets the temporary live audit CSV and MongoDB live audit collection."""
         with self._lock:
             try:
                 headers = [
@@ -358,20 +490,20 @@ class DatabaseManager:
                     writer = csv.writer(f)
                     writer.writerow(headers)
 
-                if self.mongo_db is not None:
+                if self.mongo_connected and self.mongo_db is not None:
                     try:
                         self.mongo_db["live_audit_logs"].delete_many({})
                     except Exception as me:
                         logger.warning(f"MongoDB clear notice: {me}")
 
-                logger.info("Temporary live audit CSV successfully cleared.")
+                logger.info("Temporary live audit CSV and MongoDB logs successfully cleared.")
                 return True
             except Exception as e:
                 logger.error(f"Error clearing live audit CSV: {e}")
                 return False
 
     def get_database_status(self) -> Dict[str, Any]:
-        """Returns storage diagnostics, record counts, and database health."""
+        """Returns storage diagnostics, record counts, and MongoDB Atlas status."""
         with self._lock:
             live_count = 0
             live_size_bytes = 0
@@ -385,6 +517,14 @@ class DatabaseManager:
                 except Exception:
                     pass
 
+            mongo_collections_stats = {}
+            if self.mongo_connected and self.mongo_db is not None:
+                try:
+                    for col_name in ["master_rules", "approved_metric_units", "prohibited_imperial_units", "tax_suffix_clauses", "consumer_care_keywords", "mfg_date_keywords", "live_audit_logs"]:
+                        mongo_collections_stats[col_name] = self.mongo_db[col_name].count_documents({})
+                except Exception as me:
+                    mongo_collections_stats["error"] = str(me)
+
             return {
                 "status": "healthy",
                 "data_directory": self.data_dir,
@@ -394,12 +534,14 @@ class DatabaseManager:
                 "live_audit_records_count": live_count,
                 "live_audit_max_buffer": self.max_live_records,
                 "live_audit_file_size_bytes": live_size_bytes,
-                "mongodb_connected": self.mongo_client is not None,
+                "mongodb_connected": self.mongo_connected,
+                "mongodb_database": DEFAULT_DB_NAME if self.mongo_connected else None,
+                "mongodb_collections": mongo_collections_stats,
                 "timestamp": datetime.now().isoformat()
             }
 
     # =========================================================================
-    # BUILT-IN FALLBACK DEFAULTS (IN CASE CSV IS MISSING OR DELETED)
+    # BUILT-IN FALLBACK DEFAULTS
     # =========================================================================
     def _get_default_master_rules(self) -> List[Dict[str, Any]]:
         return [
@@ -504,8 +646,8 @@ class DatabaseManager:
         }
         return units, [{"unit_symbol": u, "category": "General", "full_name": u, "language_code": "en", "statutory_schedule": "Schedule I"} for u in units]
 
-    def _get_default_prohibited_units(self) -> Dict[str, str]:
-        return {
+    def _get_default_prohibited_units(self) -> Tuple[Dict[str, str], List[Dict[str, str]]]:
+        prohib_dict = {
             "fl oz": "Fluid Ounce (Imperial Unit - Prohibited under Rule 11)",
             "floz": "Fluid Ounce (Imperial Unit - Prohibited under Rule 11)",
             "fl.oz": "Fluid Ounce (Imperial Unit - Prohibited under Rule 11)",
@@ -530,7 +672,21 @@ class DatabaseManager:
             "inches": "Inches (Imperial Unit - Non-standard under Rule 11)",
             "inch": "Inch (Imperial Unit - Non-standard under Rule 11)",
         }
+        prohib_list = [{"unit_symbol": k, "unit_name": k, "category": "Imperial", "prohibition_reason": v, "violation_severity": "CRITICAL", "penalty_clause": "Section 36"} for k, v in prohib_dict.items()]
+        return prohib_dict, prohib_list
 
 
 # Global Database Manager Singleton Instance
 db_manager = DatabaseManager()
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("LEGAL METROLOGY DATABASE - MONGODB ATLAS SYNCHRONIZATION RUNNER")
+    print("=" * 70)
+    print("Connecting to MongoDB Atlas...")
+    sync_result = db_manager.sync_all_to_mongodb()
+    print("Sync Result:", sync_result)
+    print("=" * 70)
+    status_diag = db_manager.get_database_status()
+    print("Database Diagnostics:", status_diag)
+    print("=" * 70)
