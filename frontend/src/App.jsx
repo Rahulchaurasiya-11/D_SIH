@@ -50,6 +50,7 @@ import {
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { SUPPORTED_LANGUAGES, EXTENDED_LANGUAGES, getTranslation } from './i18n';
+import { runBrowserOCR, evaluateRealTextCompliance } from './clientOcrEngine';
 
 const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -71,6 +72,8 @@ export default function App() {
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [tempApiUrl, setTempApiUrl] = useState('');
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [loadingStatusText, setLoadingStatusText] = useState('');
 
   // Multilingual State
   const [selectedLanguage, setSelectedLanguage] = useState('en');
@@ -686,49 +689,113 @@ export default function App() {
     }
   };
 
-  // Primary Audit Execution
+  // Primary Audit Execution with Real In-Browser Optical Character Recognition
   const handleExecuteAudit = async () => {
     setLoading(true);
     setErrorMessage(null);
+    setOcrProgress(0);
+    setLoadingStatusText('Initializing Optical Character Recognition...');
 
     try {
-      let response;
+      let result = null;
 
-      if (!manualTextMode && uploadedImages.length > 0) {
-        const formData = new FormData();
-        uploadedImages.forEach((img) => {
-          formData.append('images', img.file);
-        });
+      // 1. If online backend API is reachable, attempt high-speed server inference
+      if (apiHealth.online) {
+        try {
+          if (!manualTextMode && uploadedImages.length > 0) {
+            const formData = new FormData();
+            uploadedImages.forEach((img) => {
+              formData.append('images', img.file);
+            });
 
-        const url = `${apiBaseUrl}/api/v1/analyze-package?ocr_lang=${encodeURIComponent(
-          ocrTargetLanguage
-        )}&ai_engine=${encodeURIComponent(aiEngine)}`;
-        response = await fetch(url, {
-          method: 'POST',
-          body: formData
-        });
-      } else if (manualTextMode && manualText.trim()) {
-        response = await fetch(`${apiBaseUrl}/api/v1/analyze-text`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: manualText,
-            image_width: 1000,
-            image_height: 1000
-          })
-        });
-      } else {
-        setErrorMessage('Please upload at least 1 package image or enter label text to audit.');
-        setLoading(false);
-        return;
+            const url = `${apiBaseUrl}/api/v1/analyze-package?ocr_lang=${encodeURIComponent(
+              ocrTargetLanguage
+            )}&ai_engine=${encodeURIComponent(aiEngine)}`;
+            const response = await fetch(url, {
+              method: 'POST',
+              body: formData
+            });
+
+            if (response.ok) {
+              result = await response.json();
+            }
+          } else if (manualTextMode && manualText.trim()) {
+            const response = await fetch(`${apiBaseUrl}/api/v1/analyze-text`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text: manualText,
+                image_width: 1000,
+                image_height: 1000
+              })
+            });
+
+            if (response.ok) {
+              result = await response.json();
+            }
+          }
+        } catch (apiErr) {
+          console.warn('Direct server call notice, switching to in-browser AI OCR engine:', apiErr);
+        }
       }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to complete compliance audit.');
+      // 2. If backend is offline or pure Vercel deployment, execute REAL In-Browser Tesseract OCR
+      if (!result) {
+        if (!manualTextMode && uploadedImages.length > 0) {
+          let combinedText = '';
+          const allSegments = [];
+
+          for (let i = 0; i < uploadedImages.length; i++) {
+            const img = uploadedImages[i];
+            const currentAngle = img.angleIndex || i + 1;
+            setLoadingStatusText(`Extracting Real Text from Angle ${currentAngle} (${i + 1}/${uploadedImages.length})...`);
+            
+            const ocrRes = await runBrowserOCR(img.file, (pct) => {
+              setOcrProgress(pct);
+            });
+
+            combinedText += '\n' + ocrRes.fullText;
+            const taggedSegments = ocrRes.segments.map((seg) => ({
+              ...seg,
+              image_index: currentAngle
+            }));
+            allSegments.push(...taggedSegments);
+          }
+
+          setLoadingStatusText('Evaluating Legal Metrology Rules...');
+          result = evaluateRealTextCompliance(
+            combinedText,
+            allSegments,
+            uploadedImages[0].name || 'Camera_Photo.jpg',
+            uploadedImages.length
+          );
+        } else if (manualTextMode && manualText.trim()) {
+          setLoadingStatusText('Evaluating Label Text...');
+          const lines = manualText.split('\n').filter((l) => l.trim().length > 0);
+          const manualSegments = lines.map((l, idx) => ({
+            text: l.trim(),
+            confidence: 0.98,
+            box: [[10, idx * 30], [300, idx * 30], [300, idx * 30 + 20], [10, idx * 30 + 20]],
+            image_index: 1
+          }));
+
+          result = evaluateRealTextCompliance(
+            manualText,
+            manualSegments,
+            'Manual_Text_Audit.txt',
+            1
+          );
+        } else {
+          setErrorMessage('Please upload at least 1 package image or enter label text to audit.');
+          setLoading(false);
+          return;
+        }
       }
 
-      const result = await response.json();
+      if (!result) {
+        throw new Error('Unable to extract text from packaging. Please try a clearer photograph.');
+      }
+
       setAuditResult(result);
       setActiveTelemetryAngle('all');
 
@@ -745,27 +812,12 @@ export default function App() {
         setActiveTab('passed');
       }
     } catch (err) {
-      console.warn('Backend API call notice (falling back to client simulation if offline):', err);
-      // If network fetch fails (e.g. backend not reachable on mobile/Vercel), execute client-side evaluator
-      if (err.message && (err.message.includes('fetch') || err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('connect'))) {
-        const fallbackResult = evaluateClientSideCompliance(
-          manualTextMode ? manualText : '',
-          uploadedImages.length || 1
-        );
-        fallbackResult.filename = uploadedImages[0]?.name || 'MobileCameraSpecimen.jpg';
-        fallbackResult.images_count = uploadedImages.length || 1;
-        setAuditResult(fallbackResult);
-        setActiveTelemetryAngle('all');
-        if (fallbackResult.violations && fallbackResult.violations.length > 0) {
-          setActiveTab('violations');
-        } else {
-          setActiveTab('passed');
-        }
-      } else {
-        setErrorMessage(err.message || 'Audit execution encountered an error.');
-      }
+      console.error('Audit execution error:', err);
+      setErrorMessage(err.message || 'Audit execution encountered an error.');
     } finally {
       setLoading(false);
+      setLoadingStatusText('');
+      setOcrProgress(0);
     }
   };
 
@@ -1430,17 +1482,29 @@ export default function App() {
               disabled={loading || (!uploadedImages.length && !manualText.trim())}
               className={`w-full py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all ${
                 loading
-                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
+                  ? 'bg-blue-50 text-blue-900 border border-blue-300 shadow-inner'
                   : !uploadedImages.length && !manualText.trim()
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                   : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm active:scale-[0.99]'
               }`}
             >
               {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>{t('executingAudit')}</span>
-                </>
+                <div className="flex flex-col items-center gap-1.5 py-0.5">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                    <span className="font-semibold text-slate-800">
+                      {loadingStatusText || t('executingAudit')} {ocrProgress > 0 ? `(${ocrProgress}%)` : ''}
+                    </span>
+                  </div>
+                  {ocrProgress > 0 && (
+                    <div className="w-56 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full transition-all duration-150 rounded-full"
+                        style={{ width: `${ocrProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
               ) : (
                 <>
                   <Scale className="w-4 h-4 text-white" />
