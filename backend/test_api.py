@@ -135,6 +135,56 @@ def test_api_vlm_info():
     assert "supported_models" in data
     print("  --> /api/v1/vlm-info (Vision-Language Models Info): OK")
 
+def test_api_rules_database():
+    response = client.get("/api/v1/rules/database")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert len(data["master_rules"]) >= 6
+    assert data["approved_units_count"] >= 50
+    assert data["prohibited_units_count"] >= 15
+    print(f"  --> /api/v1/rules/database: OK ({len(data['master_rules'])} master rules, {data['approved_units_count']} approved units loaded from CSV)")
+
+def test_api_rules_reload():
+    response = client.post("/api/v1/rules/reload")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "Statutory rules" in data["message"]
+    print("  --> /api/v1/rules/reload: OK (Hot reload from CSV validated)")
+
+def test_api_live_audit_history_and_rotation():
+    # 1. Clear existing live audit log first
+    clear_res = client.delete("/api/v1/audits/live-history")
+    assert clear_res.status_code == 200
+    assert clear_res.json()["success"] is True
+
+    # 2. Trigger 3 audits via text analysis
+    for i in range(3):
+        payload = {
+            "text": f"PRODUCT #{i+1}\nNet Qty: 100 g\nMRP Rs. 50 (Inclusive of all taxes)\nDate of Mfg: 02/2026\nHelpline: 1800-111-2233\nOrigin: India"
+        }
+        res = client.post("/api/v1/analyze-text", json=payload)
+        assert res.status_code == 200
+
+    # 3. Retrieve history from CSV
+    history_res = client.get("/api/v1/audits/live-history")
+    assert history_res.status_code == 200
+    h_data = history_res.json()
+    assert h_data["success"] is True
+    assert h_data["count"] == 3
+    assert len(h_data["history"]) == 3
+    print(f"  --> /api/v1/audits/live-history: OK (Dynamic CSV buffer successfully captured {h_data['count']} live audits)")
+
+def test_api_database_status():
+    response = client.get("/api/v1/database/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["master_rules_count"] >= 6
+    assert data["live_audit_max_buffer"] == 50
+    print(f"  --> /api/v1/database/status: OK (Buffer: {data['live_audit_records_count']}/{data['live_audit_max_buffer']} records)")
+
 if __name__ == "__main__":
     print("=" * 60)
     print("RUNNING FASTAPI BACKEND INTEGRATION TESTS")
@@ -142,13 +192,18 @@ if __name__ == "__main__":
     test_api_health()
     test_api_vlm_info()
     test_api_samples()
+    test_api_rules_database()
+    test_api_rules_reload()
     test_api_analyze_text_compliant()
     test_api_analyze_text_infringement()
     test_api_analyze_package_upload()
     test_api_analyze_package_multi_image_upload()
     test_api_verify_and_re_audit()
+    test_api_live_audit_history_and_rotation()
+    test_api_database_status()
     print("=" * 60)
     print("ALL API INTEGRATION TESTS PASSED CLEANLY! [SUCCESS]")
     print("=" * 60)
+
 
 

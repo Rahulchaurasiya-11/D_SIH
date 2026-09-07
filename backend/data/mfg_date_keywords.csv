@@ -1,0 +1,61 @@
+keyword,category,language
+mfg,Manufacture,en
+manufactured,Manufacture,en
+manufacturing,Manufacture,en
+mfg date,Manufacture,en
+date of mfg,Manufacture,en
+pkd,Packaging,en
+packed,Packaging,en
+packaging,Packaging,en
+date of packaging,Packaging,en
+pkg,Packaging,en
+packed date,Packaging,en
+import,Import,en
+imported,Import,en
+import date,Import,en
+batch,Batch,en
+lot,Batch,en
+b.no,Batch,en
+b.n,Batch,en
+btch,Batch,en
+mfd,Manufacture,en
+mfd.,Manufacture,en
+mfd. on,Manufacture,en
+mfd on,Manufacture,en
+date of import,Import,en
+exp,Expiry,en
+exp.,Expiry,en
+expiry,Expiry,en
+exp date,Expiry,en
+use before,Expiry,en
+best before,Expiry,en
+best bef,Expiry,en
+use by,Expiry,en
+mfg/exp,Manufacture,en
+mfg dt,Manufacture,en
+pkd dt,Packaging,en
+निर्माण तिथि,Manufacture,hi
+पैकिंग तिथि,Packaging,hi
+उत्पादन,Manufacture,hi
+बैच नं,Batch,hi
+उपयोग से पहले,Expiry,hi
+उत्पादन दिनांक,Manufacture,mr
+पॅकिंग दिनांक,Packaging,mr
+తయారీ తేదీ,Manufacture,te
+ప్యాకింగ్ తేదీ,Packaging,te
+బ్యాచ్ నెం,Batch,te
+గడువు తేదీ,Expiry,te
+উত্পাদন তারিখ,Manufacture,bn
+প্যাকিং তারিখ,Packaging,bn
+মেয়াদ উত্তীর্ণের তারিখ,Expiry,bn
+ਤਿਆਰੀ ਮਿਤੀ,Manufacture,pa
+ਪੈਕਿੰਗ ਮਿਤੀ,Packaging,pa
+ਬੈਚ ਨੰਬਰ,Batch,pa
+تاریخ تیاری,Manufacture,ur
+پیکنگ تاریخ,Packaging,ur
+بیچ نمبر,Batch,ur
+தயாரிப்பு தேதி,Manufacture,ta
+பேக்கிங் தேதி,Packaging,ta
+ઉત્પાદન તારીખ,Manufacture,gu
+પેકિંગ તારીખ,Packaging,gu
+ಉತ್ಪಾದನಾ ದಿನಾಂಕ,Manufacture,kn

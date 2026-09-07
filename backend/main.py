@@ -19,6 +19,7 @@ import cv2
 
 from compliance_engine import LegalMetrologyComplianceEngine
 from vlm_engine import vlm_pipeline
+from db_manager import db_manager
 
 # Setup Logging
 logging.basicConfig(
@@ -432,6 +433,12 @@ async def analyze_package(
             "raw_segments": all_segments
         }
 
+        # Automatically log to dynamic temporary CSV live audit store (Rolling FIFO Buffer)
+        try:
+            db_manager.log_live_audit(response_payload)
+        except Exception as log_err:
+            logger.warning(f"Live audit CSV logging notice: {log_err}")
+
         return JSONResponse(status_code=status.HTTP_200_OK, content=response_payload)
 
     except HTTPException:
@@ -461,8 +468,9 @@ async def verify_and_re_audit(payload: ReAuditRequest):
             manual_overrides=payload.manual_overrides
         )
 
-        return {
+        audit_res = {
             "success": True,
+            "filename": "Re-Audit (Inspector Verified)",
             "status": audit_report["status"],
             "overall_score": audit_report["overall_score"],
             "is_manually_verified": audit_report.get("is_manually_verified", True),
@@ -476,6 +484,14 @@ async def verify_and_re_audit(payload: ReAuditRequest):
             "raw_text_dump": [s.get("text", "") for s in segments],
             "raw_segments": segments
         }
+
+        # Automatically log to dynamic temporary CSV live audit store
+        try:
+            db_manager.log_live_audit(audit_res)
+        except Exception as log_err:
+            logger.warning(f"Live audit CSV logging notice: {log_err}")
+
+        return audit_res
     except Exception as exc:
         logger.exception(f"Error in verify_and_re_audit: {exc}")
         raise HTTPException(
@@ -515,8 +531,9 @@ async def analyze_raw_text(payload: TextAnalysisRequest):
         image_dimensions=(payload.image_height or 1000, payload.image_width or 1000)
     )
 
-    return {
+    text_audit_res = {
         "success": True,
+        "filename": "Text Specimen",
         "status": audit_report["status"],
         "overall_score": audit_report["overall_score"],
         "multilingual_profile": audit_report.get("multilingual_profile", {}),
@@ -528,6 +545,14 @@ async def analyze_raw_text(payload: TextAnalysisRequest):
         "raw_text_dump": [s["text"] for s in segments],
         "raw_segments": segments
     }
+
+    # Automatically log to dynamic temporary CSV live audit store
+    try:
+        db_manager.log_live_audit(text_audit_res)
+    except Exception as log_err:
+        logger.warning(f"Live audit CSV logging notice: {log_err}")
+
+    return text_audit_res
 
 
 @app.get("/api/v1/samples")
@@ -733,7 +758,81 @@ async def get_test_samples():
     return {"samples": samples}
 
 
+# =========================================================================
+# STATUTORY RULES & TEMPORARY LIVE AUDIT DATABASE ENDPOINTS
+# =========================================================================
+@app.get("/api/v1/rules/database")
+async def get_rules_database():
+    """
+    Returns master statutory rules, approved SI metric units, and prohibited imperial units
+    loaded directly from the backend CSV knowledge base.
+    """
+    return {
+        "success": True,
+        "master_rules": db_manager.master_rules,
+        "approved_units": db_manager.approved_units_list,
+        "approved_units_count": len(db_manager.approved_units_set),
+        "prohibited_units": db_manager.prohibited_units_dict,
+        "prohibited_units_count": len(db_manager.prohibited_units_dict),
+        "tax_suffix_patterns_count": len(db_manager.tax_suffix_patterns),
+        "consumer_care_keywords_count": len(db_manager.consumer_care_keywords),
+        "mfg_keywords_count": len(db_manager.mfg_keywords),
+        "storage_mode": "MongoDB (Active)" if db_manager.mongo_client else "CSV Knowledge Base (Local)"
+    }
+
+
+@app.post("/api/v1/rules/reload")
+async def reload_rules_database():
+    """
+    Hot-reloads all master rules, approved metric units, and regulatory keywords from the CSV files
+    into the running compliance engine without restarting the server.
+    """
+    reload_summary = compliance_engine.reload_rules()
+    db_status = db_manager.get_database_status()
+    return {
+        "success": True,
+        "message": "Statutory rules and metric datasets hot-reloaded successfully from CSV.",
+        "reload_summary": reload_summary,
+        "database_status": db_status
+    }
+
+
+@app.get("/api/v1/audits/live-history")
+async def get_live_audit_history(limit: int = 50):
+    """
+    Fetches temporary live extracted package audit records from the rolling CSV buffer.
+    """
+    history = db_manager.get_live_audit_history(limit=limit)
+    return {
+        "success": True,
+        "count": len(history),
+        "max_buffer_limit": db_manager.max_live_records,
+        "history": history
+    }
+
+
+@app.delete("/api/v1/audits/live-history")
+async def clear_live_audit_history():
+    """
+    Clears the temporary live audit CSV file to reset audit history on demand.
+    """
+    cleared = db_manager.clear_live_audit_history()
+    return {
+        "success": cleared,
+        "message": "Live audit history cleared successfully." if cleared else "Failed to clear live audit history."
+    }
+
+
+@app.get("/api/v1/database/status")
+async def get_database_status():
+    """
+    Returns database diagnostics, CSV file statistics, and MongoDB connection status.
+    """
+    return db_manager.get_database_status()
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 

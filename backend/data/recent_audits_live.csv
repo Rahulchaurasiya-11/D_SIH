@@ -1,0 +1,4 @@
+audit_id,timestamp,product_name,mrp,taxes_included,net_quantity,unit_of_measure,mfg_date,consumer_care_email,consumer_care_phone,country_of_origin,manufacturer_name,compliance_status,overall_score,violations_count,violations_summary,dominant_language
+AUD_20260907_181807_48,2026-09-07 18:18:07,Text Specimen,50,No,100,N/A,Not Detected,Not Detected,1800-111-2233,India,Not Detected,COMPLIANT,97,0,None (Fully Compliant),English
+AUD_20260907_181807_46,2026-09-07 18:18:07,Text Specimen,50,No,100,N/A,Not Detected,Not Detected,1800-111-2233,India,Not Detected,COMPLIANT,97,0,None (Fully Compliant),English
+AUD_20260907_181807_45,2026-09-07 18:18:07,Text Specimen,50,No,100,N/A,Not Detected,Not Detected,1800-111-2233,India,Not Detected,COMPLIANT,97,0,None (Fully Compliant),English

@@ -1,0 +1,194 @@
+unit_symbol,category,full_name,language_code,statutory_schedule
+g,Mass,Gram,en,Schedule I
+gm,Mass,Gram,en,Schedule I
+gms,Mass,Grams,en,Schedule I
+gram,Mass,Gram,en,Schedule I
+grams,Mass,Grams,en,Schedule I
+kg,Mass,Kilogram,en,Schedule I
+kgs,Mass,Kilograms,en,Schedule I
+kilogram,Mass,Kilogram,en,Schedule I
+kilograms,Mass,Kilograms,en,Schedule I
+mg,Mass,Milligram,en,Schedule I
+milligram,Mass,Milligram,en,Schedule I
+milligrams,Mass,Milligrams,en,Schedule I
+ml,Volume,Millilitre,en,Schedule I
+mls,Volume,Millilitres,en,Schedule I
+millilitre,Volume,Millilitre,en,Schedule I
+millilitres,Volume,Millilitres,en,Schedule I
+milliliter,Volume,Milliliter,en,Schedule I
+milliliters,Volume,Milliliters,en,Schedule I
+l,Volume,Litre,en,Schedule I
+ltr,Volume,Litre,en,Schedule I
+ltrs,Volume,Litres,en,Schedule I
+litre,Volume,Litre,en,Schedule I
+litres,Volume,Litres,en,Schedule I
+liter,Volume,Liter,en,Schedule I
+liters,Volume,Liters,en,Schedule I
+cl,Volume,Centilitre,en,Schedule I
+dl,Volume,Decilitre,en,Schedule I
+units,Count,Units,en,Schedule II
+unit,Count,Unit,en,Schedule II
+u,Count,Unit,en,Schedule II
+pcs,Count,Pieces,en,Schedule II
+piece,Count,Piece,en,Schedule II
+pieces,Count,Pieces,en,Schedule II
+pc,Count,Piece,en,Schedule II
+pkts,Count,Packets,en,Schedule II
+packets,Count,Packets,en,Schedule II
+packet,Count,Packet,en,Schedule II
+pack,Count,Pack,en,Schedule II
+n,Count,Number (Standard Count),en,Schedule II
+count,Count,Count,en,Schedule II
+ct,Count,Count,en,Schedule II
+nos,Count,Numbers,en,Schedule II
+no,Count,Number,en,Schedule II
+set,Count,Set,en,Schedule II
+sets,Count,Sets,en,Schedule II
+items,Count,Items,en,Schedule II
+item,Count,Item,en,Schedule II
+pair,Count,Pair,en,Schedule II
+pairs,Count,Pairs,en,Schedule II
+pens,Stationery,Pens (Writing Instrument),en,Rule 12
+pen,Stationery,Pen (Writing Instrument),en,Rule 12
+refills,Stationery,Refills,en,Rule 12
+refill,Stationery,Refill,en,Rule 12
+pencils,Stationery,Pencils,en,Rule 12
+pencil,Stationery,Pencil,en,Rule 12
+markers,Stationery,Markers,en,Rule 12
+marker,Stationery,Marker,en,Rule 12
+highlighters,Stationery,Highlighters,en,Rule 12
+highlighter,Stationery,Highlighter,en,Rule 12
+erasers,Stationery,Erasers,en,Rule 12
+eraser,Stationery,Eraser,en,Rule 12
+sharpeners,Stationery,Sharpeners,en,Rule 12
+sharpener,Stationery,Sharpener,en,Rule 12
+rulers,Stationery,Rulers,en,Rule 12
+ruler,Stationery,Ruler,en,Rule 12
+notebooks,Stationery,Notebooks,en,Rule 12
+notebook,Stationery,Notebook,en,Rule 12
+crayons,Stationery,Crayons,en,Rule 12
+crayon,Stationery,Crayon,en,Rule 12
+paints,Stationery,Paints,en,Rule 12
+paint,Stationery,Paint,en,Rule 12
+tablets,Pharma,Tablets,en,Rule 12
+tablet,Pharma,Tablet,en,Rule 12
+tabs,Pharma,Tablets,en,Rule 12
+tab,Pharma,Tablet,en,Rule 12
+capsules,Pharma,Capsules,en,Rule 12
+capsule,Pharma,Capsule,en,Rule 12
+caps,Pharma,Capsules,en,Rule 12
+cap,Pharma,Capsule,en,Rule 12
+strips,Pharma,Strips,en,Rule 12
+strip,Pharma,Strip,en,Rule 12
+vials,Pharma,Vials,en,Rule 12
+vial,Pharma,Vial,en,Rule 12
+ampoules,Pharma,Ampoules,en,Rule 12
+ampoule,Pharma,Ampoule,en,Rule 12
+sachets,Pharma,Sachets,en,Rule 12
+sachet,Pharma,Sachet,en,Rule 12
+pages,Paper,Pages,en,Rule 12
+page,Paper,Page,en,Rule 12
+pgs,Paper,Pages,en,Rule 12
+pg,Paper,Page,en,Rule 12
+sheets,Paper,Sheets,en,Rule 12
+sheet,Paper,Sheet,en,Rule 12
+leaves,Paper,Leaves,en,Rule 12
+leaf,Paper,Leaf,en,Rule 12
+rolls,Paper,Rolls,en,Rule 12
+roll,Paper,Roll,en,Rule 12
+tubes,Containers,Tubes,en,Rule 12
+tube,Containers,Tube,en,Rule 12
+bottles,Containers,Bottles,en,Rule 12
+bottle,Containers,Bottle,en,Rule 12
+pouches,Containers,Pouches,en,Rule 12
+pouch,Containers,Pouch,en,Rule 12
+cans,Containers,Cans,en,Rule 12
+can,Containers,Can,en,Rule 12
+jars,Containers,Jars,en,Rule 12
+jar,Containers,Jar,en,Rule 12
+tins,Containers,Tins,en,Rule 12
+tin,Containers,Tin,en,Rule 12
+boxes,Containers,Boxes,en,Rule 12
+box,Containers,Box,en,Rule 12
+cartons,Containers,Cartons,en,Rule 12
+carton,Containers,Carton,en,Rule 12
+m,Length,Metre,en,Schedule I
+meter,Length,Meter,en,Schedule I
+meters,Length,Meters,en,Schedule I
+metre,Length,Metre,en,Schedule I
+metres,Length,Metres,en,Schedule I
+cm,Length,Centimetre,en,Schedule I
+centimeter,Length,Centimeter,en,Schedule I
+centimeters,Length,Centimeters,en,Schedule I
+centimetre,Length,Centimetre,en,Schedule I
+centimetres,Length,Centimetres,en,Schedule I
+mm,Length,Millimetre,en,Schedule I
+millimeter,Length,Millimeter,en,Schedule I
+millimeters,Length,Millimeters,en,Schedule I
+millimetre,Length,Millimetre,en,Schedule I
+millimetres,Length,Millimetres,en,Schedule I
+sq.m,Area,Square Metre,en,Schedule I
+sq.cm,Area,Square Centimetre,en,Schedule I
+sq.mm,Area,Square Millimetre,en,Schedule I
+sqm,Area,Square Metre,en,Schedule I
+sqcm,Area,Square Centimetre,en,Schedule I
+sqmm,Area,Square Millimetre,en,Schedule I
+cbm,Volume,Cubic Metre,en,Schedule I
+cu.m,Volume,Cubic Metre,en,Schedule I
+cu.cm,Volume,Cubic Centimetre,en,Schedule I
+cc,Volume,Cubic Centimetre,en,Schedule I
+ग्राम,Mass,Gram (Hindi/Devanagari),hi,Schedule I
+किग्रा,Mass,Kilogram (Hindi/Devanagari),hi,Schedule I
+कि.ग्रा.,Mass,Kilogram (Hindi/Devanagari),hi,Schedule I
+मिली,Volume,Millilitre (Hindi/Devanagari),hi,Schedule I
+मि.ली.,Volume,Millilitre (Hindi/Devanagari),hi,Schedule I
+लीटर,Volume,Litre (Hindi/Devanagari),hi,Schedule I
+ली.,Volume,Litre (Hindi/Devanagari),hi,Schedule I
+मीटर,Length,Metre (Hindi/Devanagari),hi,Schedule I
+सेमी,Length,Centimetre (Hindi/Devanagari),hi,Schedule I
+नग,Count,Unit/Count (Hindi/Devanagari),hi,Schedule II
+संख्या,Count,Number (Hindi/Devanagari),hi,Schedule II
+గ్రాములు,Mass,Grams (Telugu),te,Schedule I
+గ్రా,Mass,Gram (Telugu),te,Schedule I
+మి.లీ,Volume,Millilitre (Telugu),te,Schedule I
+మిలీ,Volume,Millilitre (Telugu),te,Schedule I
+లీటర్,Volume,Litre (Telugu),te,Schedule I
+కేజీ,Mass,Kilogram (Telugu),te,Schedule I
+కిలో,Mass,Kilo (Telugu),te,Schedule I
+కిలోలు,Mass,Kilos (Telugu),te,Schedule I
+సంఖ్య,Count,Number (Telugu),te,Schedule II
+నెం,Count,No (Telugu),te,Schedule II
+మీటర్లు,Length,Meters (Telugu),te,Schedule I
+సెం.మీ,Length,Centimeters (Telugu),te,Schedule I
+निव्वळ,Count,Net (Marathi),mr,Schedule II
+कि.ग्रॅ.,Mass,Kilogram (Marathi),mr,Schedule I
+लिटर,Volume,Litre (Marathi),mr,Schedule I
+গ্রাম,Mass,Gram (Bengali),bn,Schedule I
+কেজি,Mass,Kilogram (Bengali),bn,Schedule I
+মিলি,Volume,Millilitre (Bengali),bn,Schedule I
+লিটার,Volume,Litre (Bengali),bn,Schedule I
+প্যাকেট,Count,Packet (Bengali),bn,Schedule II
+ਗ੍ਰਾਮ,Mass,Gram (Punjabi),pa,Schedule I
+ਕਿਲੋ,Mass,Kilogram (Punjabi),pa,Schedule I
+ਮਿਲੀ,Volume,Millilitre (Punjabi),pa,Schedule I
+ਲਿਟਰ,Volume,Litre (Punjabi),pa,Schedule I
+ਨੰਬਰ,Count,Number (Punjabi),pa,Schedule II
+ਪੈਕਟ,Count,Packet (Punjabi),pa,Schedule II
+گرام,Mass,Gram (Urdu),ur,Schedule I
+کلو,Mass,Kilogram (Urdu),ur,Schedule I
+ملی,Volume,Millilitre (Urdu),ur,Schedule I
+لیٹر,Volume,Litre (Urdu),ur,Schedule I
+تعداد,Count,Count/Quantity (Urdu),ur,Schedule II
+கிராம்,Mass,Gram (Tamil),ta,Schedule I
+கிலோ,Mass,Kilogram (Tamil),ta,Schedule I
+மில்லி,Volume,Millilitre (Tamil),ta,Schedule I
+லிட்டர்,Volume,Litre (Tamil),ta,Schedule I
+எண்ணிக்கை,Count,Count (Tamil),ta,Schedule II
+ગ્રામ,Mass,Gram (Gujarati),gu,Schedule I
+કિલો,Mass,Kilogram (Gujarati),gu,Schedule I
+નંગ,Count,Unit/Count (Gujarati),gu,Schedule II
+ಗ್ರಾಂ,Mass,Gram (Kannada),kn,Schedule I
+ಕೆಜಿ,Mass,Kilogram (Kannada),kn,Schedule I
+ಲೀಟರ್,Volume,Litre (Kannada),kn,Schedule I
+കിലോഗ്രാം,Mass,Kilogram (Malayalam),ml,Schedule I
+ലിറ്റർ,Volume,Litre (Malayalam),ml,Schedule I

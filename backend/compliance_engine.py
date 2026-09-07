@@ -15,6 +15,15 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+try:
+    from db_manager import db_manager
+except ImportError:
+    try:
+        from backend.db_manager import db_manager
+    except ImportError:
+        db_manager = None
+
+
 
 class LegalMetrologyComplianceEngine:
     """
@@ -288,9 +297,6 @@ class LegalMetrologyComplianceEngine:
     ]
 
     def __init__(self):
-        self.tax_suffix_regex = re.compile(
-            r"(" + "|".join(self.TAX_SUFFIX_PATTERNS) + r")", re.IGNORECASE
-        )
         self.email_regex = re.compile(
             r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", re.IGNORECASE
         )
@@ -308,6 +314,47 @@ class LegalMetrologyComplianceEngine:
             re.IGNORECASE
         )
         self.pincode_regex = re.compile(r"\b[1-9][0-9]{5}\b")
+
+        # Ingest Datasets from CSV Database Manager (with fallback to class constants)
+        self.reload_rules()
+
+    def reload_rules(self) -> Dict[str, Any]:
+        """
+        Dynamically reloads statutory rules, approved units, prohibited imperial units,
+        tax suffix patterns, and keywords from the CSV master database.
+        """
+        try:
+            if db_manager is not None:
+                db_manager.reload_master_datasets()
+                self.approved_metric_units = set(self.APPROVED_METRIC_UNITS) | db_manager.approved_units_set
+                self.unambiguous_imperial_units = dict(self.UNAMBIGUOUS_IMPERIAL_UNITS)
+                self.unambiguous_imperial_units.update(db_manager.prohibited_units_dict)
+                
+                combined_tax = list(self.TAX_SUFFIX_PATTERNS) + [
+                    p for p in db_manager.tax_suffix_patterns if p not in self.TAX_SUFFIX_PATTERNS
+                ]
+                self.tax_suffix_patterns = combined_tax
+                self.tax_suffix_regex = re.compile(
+                    r"(" + "|".join(self.tax_suffix_patterns) + r")", re.IGNORECASE
+                )
+                self.consumer_care_keywords = list(set(self.CONSUMER_CARE_KEYWORDS + db_manager.consumer_care_keywords))
+                self.mfg_keywords = list(set(self.MFG_KEYWORDS + db_manager.mfg_keywords))
+                self.master_rules = db_manager.master_rules
+                return {"success": True, "message": "Statutory rules reloaded from CSV database."}
+            else:
+                raise ValueError("db_manager module unavailable")
+        except Exception:
+            # Safe Fallback to class defaults
+            self.approved_metric_units = set(self.APPROVED_METRIC_UNITS)
+            self.unambiguous_imperial_units = dict(self.UNAMBIGUOUS_IMPERIAL_UNITS)
+            self.tax_suffix_patterns = list(self.TAX_SUFFIX_PATTERNS)
+            self.tax_suffix_regex = re.compile(
+                r"(" + "|".join(self.TAX_SUFFIX_PATTERNS) + r")", re.IGNORECASE
+            )
+            self.consumer_care_keywords = list(self.CONSUMER_CARE_KEYWORDS)
+            self.mfg_keywords = list(self.MFG_KEYWORDS)
+            self.master_rules = []
+            return {"success": False, "message": "Loaded built-in default rules."}
 
     def reconstruct_cylindrical_fragments(self, raw_text: str) -> str:
         """
@@ -849,7 +896,7 @@ class LegalMetrologyComplianceEngine:
         sanitized_lower = sanitized_text.lower()
 
         # 2. Check for Unambiguous Prohibited Imperial Units (oz, fl oz, lbs, gallon, quart, yard, inch)
-        for imperial_unit, unit_desc in self.UNAMBIGUOUS_IMPERIAL_UNITS.items():
+        for imperial_unit, unit_desc in self.unambiguous_imperial_units.items():
             pattern = r"\b\d+(?:\.\d+)?\s*" + re.escape(imperial_unit) + r"\b"
             match = re.search(pattern, sanitized_lower)
             if match:
@@ -1049,7 +1096,7 @@ class LegalMetrologyComplianceEngine:
         violations = []
         warnings = []
 
-        has_care_keyword = any(kw in full_text_lower for kw in self.CONSUMER_CARE_KEYWORDS)
+        has_care_keyword = any(kw in full_text_lower for kw in self.consumer_care_keywords)
         emails = self.email_regex.findall(full_text)
         valid_email = emails[0] if emails else None
 
@@ -1143,7 +1190,7 @@ class LegalMetrologyComplianceEngine:
                 found_date_str = match.group(1) if match.lastindex else match.group(0)
                 break
 
-        has_mfg_keyword = any(kw in full_text_lower for kw in self.MFG_KEYWORDS)
+        has_mfg_keyword = any(kw in full_text_lower for kw in self.mfg_keywords)
 
         if not found_date_str and not has_mfg_keyword:
             violations.append({

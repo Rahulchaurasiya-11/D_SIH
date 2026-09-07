@@ -1,0 +1,52 @@
+phrase_regex,language,match_mode,description
+inclusive\s*of\s*all\s*taxes,English,exact,Statutory clause under Rule 6(1)(da)
+incl?\.?\s*of\s*all\s*taxes,English,exact,Standard abbreviation
+inc[l1i]?\.?\s*(?:of\s*)?all\s*taxes,English,fuzzy,OCR noise resilient
+inc[l1i]?\s*ofalltaxes,English,fuzzy,No-space fused OCR variant
+incl?[\s_]*of[\s_]*all[\s_]*taxes,English,fuzzy,Underscore / punctuation separator
+incl?\.?\s*all\s*taxes,English,exact,Inclusive all taxes
+inclusive\s*all\s*taxes,English,exact,Inclusive all taxes variant
+all\s*taxes\s*incl?,English,exact,All taxes included
+all\s*taxes\s*included,English,exact,All taxes included
+taxes\s*included,English,exact,Taxes included
+taxes\s*incl\.?,English,exact,Taxes included short
+incl\.?\s*tax(?:es)?,English,exact,Incl taxes
+incl\.?\s*of\s*all\s*taxes\.?,English,exact,Inclusive of all taxes trailing dot
+inclusive\s*of\s*all\s*tax?,English,curvature_fuzzy,Curvature cut-off at label edge
+inclusive\s*of\s*al\b,English,curvature_fuzzy,Curvature cut-off at label edge
+inclusive\s*of\b,English,curvature_fuzzy,Curvature cut-off at label edge
+incl?\.?\s*of\s*all\s*tax?,English,curvature_fuzzy,Curvature cut-off at label edge
+incl?\.?\s*of\s*all\b,English,curvature_fuzzy,Curvature cut-off at label edge
+incl?\.?\s*of\s*al\b,English,curvature_fuzzy,Curvature cut-off at label edge
+incl?\.?\s*all\s*tax?,English,curvature_fuzzy,Curvature cut-off at label edge
+all\s*taxes\s*inc?,English,curvature_fuzzy,Curvature cut-off at label edge
+all\s*tax\s*inc?,English,curvature_fuzzy,Curvature cut-off at label edge
+taxes\s*inc\b,English,curvature_fuzzy,Curvature cut-off at label edge
+tax\s*incl?\b,English,curvature_fuzzy,Curvature cut-off at label edge
+inc[l1i]?\.?\s*of\s*all,English,curvature_fuzzy,Curvature cut-off at label edge
+inc[l1i]?\.?\s*all\s*tax,English,curvature_fuzzy,Curvature cut-off at label edge
+सभी\s*करों?\s*सहित,Hindi,exact,Statutory Hindi clause
+करों?\s*सहित,Hindi,exact,Hindi taxes included
+सब\s*टैक्स\s*सहित,Hindi,exact,Hindi colloquial tax suffix
+सर्व\s*करांसह,Marathi,exact,Statutory Marathi clause
+सर्व\s*कर\s*समाविष्ट,Marathi,exact,Marathi taxes included
+అన్ని\s*పన్నులతో\s*కలిపి,Telugu,exact,Statutory Telugu clause
+అన్ని\s*పన్నులు\s*కలుపుకొని,Telugu,exact,Telugu all taxes included
+పన్నులు\s*సహా,Telugu,exact,Telugu taxes included
+పన్నులతో\s*కలిపి,Telugu,exact,Telugu with taxes
+అన్ని\s*పన్నులు\s*సహా,Telugu,exact,Telugu all taxes
+పన్నులతో\s*సహా,Telugu,exact,Telugu with taxes
+সমস্ত\s*কর\s*সহ,Bengali,exact,Statutory Bengali clause
+সমস্ত\s*কর\s*অন্তর্ভুক্ত,Bengali,exact,Bengali all taxes included
+সব\s*ট্যাক্স\s*সহ,Bengali,exact,Bengali all taxes
+ਸਾਰੇ\s*ਟੈਕਸਾਂ?\s*ਸਮੇਤ,Punjabi,exact,Statutory Punjabi clause
+ਸਾਰੇ\s*ਟੈਕਸ\s*ਸ਼ਾਮਲ,Punjabi,exact,Punjabi taxes included
+تمام\s*ٹیکسز?\s*سمیت,Urdu,exact,Statutory Urdu clause
+تمام\s*ٹیکس\s*شامل,Urdu,exact,Urdu taxes included
+அனைத்து\s*வரிகளும்\s*உட்பட,Tamil,exact,Statutory Tamil clause
+வரிகள்\s*உட்பட,Tamil,exact,Tamil taxes included
+તમામ\s*કર\s*સહિત,Gujarati,exact,Statutory Gujarati clause
+બધા\s*કર\s*સહિત,Gujarati,exact,Gujarati taxes included
+ಎಲ್ಲಾ\s*ತೆರಿಗೆಗಳು\s*ಸೇರಿವೆ,Kannada,exact,Statutory Kannada clause
+ತೆರಿಗೆ\s*ಸಹಿತ,Kannada,exact,Kannada taxes included
+എല്ലാ\s*നികുതികളും\s*ഉൾപ്പെടെ,Malayalam,exact,Statutory Malayalam clause
