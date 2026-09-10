@@ -101,14 +101,26 @@ class JsonBackend:
         os.makedirs(self.root, exist_ok=True)
         self._lock = threading.RLock()
         self._cache: Dict[str, List[Dict[str, Any]]] = {}
+        self._mtimes: Dict[str, float] = {}
 
     def _path(self, collection: str) -> str:
         return os.path.join(self.root, collection + ".json")
 
     def _load(self, collection: str) -> List[Dict[str, Any]]:
-        if collection in self._cache:
-            return self._cache[collection]
         path = self._path(collection)
+
+        # Reload when the file changed underneath us. Without this the cache is
+        # only correct for a single writer, and anything else touching the store -
+        # the seed script, a second worker, an operator editing the file - stays
+        # invisible until restart.
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            mtime = None
+
+        if collection in self._cache and self._mtimes.get(collection) == mtime:
+            return self._cache[collection]
+
         docs: List[Dict[str, Any]] = []
         if os.path.exists(path):
             try:
@@ -118,13 +130,19 @@ class JsonBackend:
                 logger.warning("Could not read %s (%s); starting that collection empty.", path, exc)
                 docs = []
         self._cache[collection] = docs
+        self._mtimes[collection] = mtime
         return docs
 
     def _flush(self, collection: str) -> None:
-        tmp = self._path(collection) + ".tmp"
+        path = self._path(collection)
+        tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(self._cache[collection], fh, ensure_ascii=False, indent=2, default=str)
-        os.replace(tmp, self._path(collection))
+        os.replace(tmp, path)
+        try:
+            self._mtimes[collection] = os.path.getmtime(path)
+        except OSError:
+            self._mtimes.pop(collection, None)
 
     def insert(self, collection: str, doc: Dict[str, Any]) -> Dict[str, Any]:
         with self._lock:

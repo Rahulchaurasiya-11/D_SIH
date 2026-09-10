@@ -44,33 +44,31 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
 
     # --- CORS ----------------------------------------------------------------
-    CORS_ORIGINS: List[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
-    )
+    # Kept as a plain string: pydantic-settings JSON-decodes complex types (list,
+    # dict) straight from env/dotenv sources before any validator runs, so a
+    # comma-separated value raises SettingsError. Parsed by `cors_origins`.
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # --- Evidence handling ---------------------------------------------------
     EVIDENCE_MAX_DIMENSION: int = 1600
     EVIDENCE_JPEG_QUALITY: int = 80
     MAX_IMAGES_PER_SCAN: int = 4
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def _split_origins(cls, v):
-        if isinstance(v, str):
-            return [o.strip() for o in v.split(",") if o.strip()]
-        return v
-
     @field_validator("CORS_ORIGINS")
     @classmethod
-    def _reject_wildcard(cls, v):
-        # Starlette silently refuses to send credentials with a "*" origin, which
-        # produces confusing "logged out on refresh" bugs. Reject it outright.
+    def _reject_wildcard(cls, v: str) -> str:
+        # Starlette silently refuses to send credentials to a "*" origin, which
+        # surfaces as confusing "logged out on refresh" bugs. Reject it outright.
         if "*" in v:
             raise ValueError(
                 'CORS_ORIGINS must not contain "*" because the API sends credentials. '
-                "List the exact frontend origins instead."
+                "List the exact frontend origins instead, comma-separated."
             )
         return v
+
+    @property
+    def cors_origins(self) -> List[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     @property
     def mongo_enabled(self) -> bool:
