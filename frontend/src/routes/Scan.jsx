@@ -17,6 +17,7 @@ import { useI18n } from '../context/I18nContext';
 import { api } from '../lib/api';
 import { readImages } from '../lib/browserOcr';
 import CaptureSlots, { ANGLES } from '../features/scan/CaptureSlots';
+import PremisesPanel, { EMPTY_PREMISES } from '../features/scan/PremisesPanel';
 import ResultView from '../features/scan/ResultView';
 
 const OCR_LANGUAGES = [
@@ -55,6 +56,7 @@ export default function Scan() {
   const [engine, setEngine] = useState('rapidocr');
   const [ocrLang, setOcrLang] = useState('auto');
 
+  const [premises, setPremises] = useState(EMPTY_PREMISES);
   const [labelText, setLabelText] = useState('');
   const [listing, setListing] = useState({
     listing_text: '', listing_html: '', source_url: '', platform: '', product_title: '',
@@ -84,6 +86,7 @@ export default function Scan() {
     setResult(null);
     setLocalFiles(null);
     setFiles({});
+    setPremises(EMPTY_PREMISES);
     setLabelText('');
     setListing({ listing_text: '', listing_html: '', source_url: '', platform: '', product_title: '' });
     setError('');
@@ -109,7 +112,9 @@ export default function Scan() {
       } else {
         setStatusText(t('scan.analysing'));
         try {
-          const response = await api.scan.images(orderedFiles, { ocrLang, aiEngine: engine });
+          const response = await api.scan.images(orderedFiles, {
+            ocrLang, aiEngine: engine, context: premises,
+          });
           setResult(response);
           setLocalFiles(orderedFiles);
         } catch (serverError) {
@@ -288,6 +293,8 @@ export default function Scan() {
           </>
         )}
       </Card>
+
+      {mode !== 'text' && <PremisesPanel value={premises} onChange={setPremises} />}
 
       <ErrorNote>{error}</ErrorNote>
 

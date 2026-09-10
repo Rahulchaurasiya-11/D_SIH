@@ -185,9 +185,11 @@ export const api = {
   },
 
   scan: {
-    images: (files, { ocrLang = 'auto', aiEngine = 'rapidocr' } = {}) => {
+    images: (files, { ocrLang = 'auto', aiEngine = 'rapidocr', context = null } = {}) => {
       const form = new FormData();
       files.forEach((file) => form.append('images', file, file.name));
+      // The request is multipart, so the inspection context travels as a JSON string.
+      if (context) form.append('context', JSON.stringify(context));
       return request(
         `/api/v1/analyze-package${query({ ocr_lang: ocrLang, ai_engine: aiEngine })}`,
         { method: 'POST', formData: form },
@@ -201,6 +203,8 @@ export const api = {
   inspections: {
     search: (filters) => request(`/api/v1/inspections${query(filters)}`),
     get: (id) => request(`/api/v1/inspections/${id}`),
+    updateCase: (id, body) =>
+      request(`/api/v1/inspections/${id}/case`, { method: 'PATCH', body }),
     evidenceUrl: (id) => `${getApiBaseUrl()}/api/v1/evidence/${id}`,
     /** Evidence is behind auth, so images are fetched as blobs rather than <img src>. */
     evidenceBlob: async (id) => {
@@ -211,6 +215,8 @@ export const api = {
 
   dashboard: {
     stats: (days = 30) => request(`/api/v1/dashboard/stats${query({ days })}`),
+    repeatOffenders: (days = 90, minimum = 2) =>
+      request(`/api/v1/repeat-offenders${query({ days, minimum })}`),
   },
 
   reports: {

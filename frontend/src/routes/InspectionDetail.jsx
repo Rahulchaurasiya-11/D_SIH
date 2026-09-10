@@ -6,6 +6,7 @@ import { Card, CardBody, CardHeader, EmptyState, ErrorNote, Skeleton } from '../
 import { useI18n } from '../context/I18nContext';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
+import CasePanel from '../features/scan/CasePanel';
 import ResultView from '../features/scan/ResultView';
 
 export default function InspectionDetail() {
@@ -78,7 +79,9 @@ export default function InspectionDetail() {
           <ArrowLeft className="h-4 w-4" aria-hidden />
           {t('nav.repository')}
         </Link>
-        <p className="font-mono text-[12px] text-faint">{inspection.id}</p>
+        <p className="font-mono text-[12px] text-faint">
+          {inspection.case_number || inspection.id}
+        </p>
       </div>
 
       <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -101,6 +104,8 @@ export default function InspectionDetail() {
       </div>
 
       <ErrorNote>{error}</ErrorNote>
+
+      <CasePanel inspection={inspection} onUpdated={setInspection} />
 
       <ResultView
         result={result}

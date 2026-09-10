@@ -31,6 +31,24 @@ def isolated_store():
     yield tmp
 
 
+@pytest.fixture(autouse=True)
+def clear_rate_limits():
+    """
+    Resets the auth limiters before every test.
+
+    The limiters are process-global and every test calls from the same client
+    address, so without this a test that exhausts the budget silently breaks
+    whichever login test happens to run after it — a failure that depends on file
+    ordering and would appear random.
+    """
+    from app.core.ratelimit import login_limiter, register_limiter
+
+    for limiter in (login_limiter, register_limiter):
+        with limiter._lock:
+            limiter._hits.clear()
+    yield
+
+
 @pytest.fixture(scope="session")
 def client():
     from fastapi.testclient import TestClient

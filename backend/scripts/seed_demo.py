@@ -27,11 +27,11 @@ from app.models import Role  # noqa: E402
 engine = LegalMetrologyComplianceEngine()
 
 OFFICERS = [
-    ("admin@legalmetrology.gov.in", "Demo@Admin2026", "A. Krishnan", Role.ADMIN.value,
+    ("admin@legalmetrology.gov.in", "Demo@Admin2026!", "A. Krishnan", Role.ADMIN.value,
      "Controller of Legal Metrology", "National"),
-    ("senior@legalmetrology.gov.in", "Demo@Senior2026", "S. Banerjee", Role.SENIOR_OFFICER.value,
+    ("senior@legalmetrology.gov.in", "Demo@Senior2026!", "S. Banerjee", Role.SENIOR_OFFICER.value,
      "Senior Enforcement Officer", "Delhi"),
-    ("inspector@legalmetrology.gov.in", "Demo@Inspect2026", "R. Sharma", Role.INSPECTOR.value,
+    ("inspector@legalmetrology.gov.in", "Demo@Inspect2026!", "R. Sharma", Role.INSPECTOR.value,
      "Legal Metrology Inspector", "Delhi North"),
 ]
 
@@ -117,6 +117,20 @@ LABELS = [
 ]
 
 
+PREMISES = [
+    ("Sharma General Store", "12 Nehru Market, Karol Bagh, New Delhi - 110005", "RETAIL",
+     "DL-LM-2026-4417", 28.6519, 77.1909),
+    ("BigValue Supermart", "Sector 18 Market, Noida, Uttar Pradesh - 201301", "SUPERMARKET",
+     "UP-LM-2025-8823", 28.5708, 77.3260),
+    ("Gupta Wholesale Traders", "Naya Bazaar, Chandni Chowk, New Delhi - 110006", "WHOLESALE",
+     "DL-LM-2024-1190", 28.6562, 77.2301),
+    ("Metro Cash Depot", "Plot 7, Okhla Industrial Area Phase II, New Delhi - 110020", "WAREHOUSE",
+     "DL-LM-2026-7731", 28.5355, 77.2730),
+    ("Krishna Kirana Store", "Main Road, Ghaziabad, Uttar Pradesh - 201001", "RETAIL",
+     "", 28.6692, 77.4538),
+]
+
+
 def as_segments(lines):
     segments = []
     for i, text in enumerate(lines):
@@ -173,7 +187,17 @@ def seed_inspections(officers, per_label=3):
                 "source": "image",
             }
 
-            doc = repo.inspections.create(payload, officer, [], source="image")
+            name, address, ptype, licence, lat, lon = random.choice(PREMISES)
+            context = {
+                "premises_name": name, "premises_address": address,
+                "premises_type": ptype, "premises_licence": licence,
+                "latitude": round(lat + random.uniform(-0.004, 0.004), 6),
+                "longitude": round(lon + random.uniform(-0.004, 0.004), 6),
+                "location_accuracy_m": round(random.uniform(5, 25), 1),
+            }
+
+            doc = repo.inspections.create(payload, officer, [], source="image", context=context)
+
             # Spread the records across the last 30 days so the trend chart has shape.
             backdated = datetime.now(timezone.utc) - timedelta(
                 days=random.randint(0, 29), hours=random.randint(0, 23)
@@ -181,6 +205,24 @@ def seed_inspections(officers, per_label=3):
             store.update_one("inspections", {"id": doc["id"]},
                              {"created_at": backdated.isoformat(),
                               "brand": brand, "product_name": product})
+
+            # Walk some cases forward, so the dashboard shows enforcement activity
+            # rather than a column of untouched OPEN findings.
+            if doc.get("case_status") == "OPEN" and random.random() < 0.65:
+                senior = next(
+                    (o for o in officers if o["role"] != Role.INSPECTOR.value), officer
+                )
+                repo.inspections.update_case(
+                    doc["id"], "NOTICE_ISSUED", senior,
+                    "Notice served on the packer.", "LM/NOT/2026/%03d" % random.randint(1, 400),
+                )
+                roll = random.random()
+                if roll < 0.45:
+                    repo.inspections.update_case(doc["id"], "COMPLIED", senior,
+                                                 "Re-inspected; declarations corrected.")
+                elif roll < 0.6:
+                    repo.inspections.update_case(doc["id"], "ESCALATED", senior,
+                                                 "Referred for compounding.")
             total += 1
     return total
 

@@ -41,7 +41,7 @@ export default function Login() {
   return (
     <div className="grid min-h-screen bg-canvas lg:grid-cols-[1.05fr_1fr]">
       {/* Identity panel. Hidden on phones so the form is above the fold. */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-brand p-12 text-brand-ink lg:flex">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-brand-panel p-12 text-brand-panel-ink lg:flex">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{
@@ -54,7 +54,7 @@ export default function Login() {
 
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded bg-brand-ink/15" aria-hidden>
+            <div className="grid h-11 w-11 place-items-center rounded bg-brand-panel-ink/15" aria-hidden>
               <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
                 <path
                   d="M12 3v18M5 8h14M7 8l-3 6a3 3 0 006 0L7 8zm10 0l-3 6a3 3 0 006 0l-3-6zM9 21h6"
@@ -141,7 +141,7 @@ export default function Login() {
             >
               <Input
                 id="password" type="password" value={form.password} onChange={set('password')}
-                required minLength={mode === 'register' ? 8 : undefined}
+                required minLength={mode === 'register' ? 10 : undefined}
                 autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                 placeholder="••••••••"
               />

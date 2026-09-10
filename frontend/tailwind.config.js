@@ -19,6 +19,8 @@ export default {
           soft: 'rgb(var(--brand-soft) / <alpha-value>)',
           ink: 'rgb(var(--brand-ink) / <alpha-value>)',
           accent: 'rgb(var(--accent) / <alpha-value>)',
+          panel: 'rgb(var(--brand-panel) / <alpha-value>)',
+          'panel-ink': 'rgb(var(--brand-panel-ink) / <alpha-value>)',
         },
         ok: {
           DEFAULT: 'rgb(var(--ok) / <alpha-value>)',

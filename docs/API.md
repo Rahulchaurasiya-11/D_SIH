@@ -44,8 +44,26 @@ curl -X POST http://localhost:8000/api/v1/auth/login \
 
 ### `POST /analyze-package` — package photographs
 
-Multipart. `images` (1–4 files), optional `ocr_lang`, `ai_engine`
-(`rapidocr` | `vlm`), `persist` (default true).
+Multipart. `images` (1–4 files, 12 MB each), optional `ocr_lang`, `ai_engine`
+(`rapidocr` | `vlm`), `persist` (default true), and `context`.
+
+`context` is an `InspectionContext` as a JSON string — where the package was found:
+
+```json
+{
+  "premises_name": "Sharma General Store",
+  "premises_address": "12 Nehru Market, Karol Bagh, New Delhi - 110005",
+  "premises_type": "RETAIL",
+  "premises_licence": "DL-LM-2026-4417",
+  "latitude": 28.6519, "longitude": 77.1909, "location_accuracy_m": 8,
+  "remarks": "Pack taken from the front shelf."
+}
+```
+
+A notice under the Act is served on a person at a place, so a finding with no
+premises cannot support one. Malformed context is rejected with 422 rather than
+dropped, so the officer is told the details did not save. A non-compliant scan
+also allocates a case number and opens an enforcement case.
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/analyze-package" \
@@ -137,7 +155,11 @@ officer-verified.
 | GET | `/dashboard/stats?days=` | Inspector | Aggregates |
 
 **Search parameters:** `q`, `status`, `rule`, `officer_id`, `date_from`, `date_to`,
-`min_score`, `max_score`, `source`, `page`, `page_size`.
+`min_score`, `max_score`, `source`, `case_status`, `premises`, `page`, `page_size`.
+
+`q` is treated as literal text, not a pattern — it is escaped before it reaches the
+store, so a search for `a+b` finds "a+b" rather than matching "aaab", and a stray
+`[` cannot fail the query.
 
 ```bash
 curl "http://localhost:8000/api/v1/inspections?status=NON_COMPLIANT&rule=RULE_11_12_PROHIBITED_UNIT&date_from=2026-08-01" \
@@ -149,6 +171,42 @@ An `INSPECTOR` is pinned to their own records: supplying another officer's
 by id returns 403.
 
 `date_to` accepts a bare date and is treated as inclusive to end-of-day.
+
+---
+
+## Enforcement cases
+
+### `PATCH /inspections/{id}/case` — advance a case
+
+Senior officer and above. Issuing a notice or closing a case is an enforcement
+decision, not a data-entry step.
+
+```json
+{ "case_status": "NOTICE_ISSUED",
+  "note": "Notice served on the packer.",
+  "notice_reference": "LM/NOT/2026/88" }
+```
+
+Permitted transitions:
+
+| From | To |
+| :--- | :--- |
+| `OPEN` | `NOTICE_ISSUED`, `CLOSED` |
+| `NOTICE_ISSUED` | `COMPLIED`, `ESCALATED`, `CLOSED` |
+| `COMPLIED` | `CLOSED` |
+| `ESCALATED` | `CLOSED` |
+| `CLOSED` | — terminal |
+
+Anything else returns **409**, as does acting on an inspection that found no
+contravention (it has no case). Each transition appends to `case_history` with the
+officer, timestamp and note.
+
+### `GET /repeat-offenders?days=&minimum=`
+
+Senior officer and above. Brands contravening across separate inspections — one bad
+pack may be a printing error, the same brand failing in several premises is a
+pattern. Returns inspections and violation counts, distinct premises, open cases,
+and the rules most often broken.
 
 ---
 
@@ -199,7 +257,10 @@ FastAPI shape throughout: `{"detail": "…"}`.
 | 403 | Authenticated but insufficient role, or another officer's record |
 | 404 | No such inspection, evidence or user |
 | 409 | E-mail already registered |
-| 422 | Validation failure (e.g. `format=exe`) |
+| 409 | Illegal case transition, or a case action on a compliant inspection |
+| 413 | Upload exceeds the per-image ceiling |
+| 422 | Validation failure (e.g. `format=exe`, malformed `context`) |
+| 429 | Rate limited — the response carries `Retry-After` |
 | 500 | Unexpected — check server logs |
 
 Unknown e-mail and wrong password both return the same 401 message, so the endpoint

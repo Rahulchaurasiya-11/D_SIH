@@ -77,7 +77,18 @@ worse than an unreachable system.
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Default 30 |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | No | Default 7 |
 | `BOOTSTRAP_ADMIN_EMAIL` / `_PASSWORD` | No | First-run admin |
+| `MAX_IMAGE_BYTES` | No | Per-photograph ceiling, default 12 MB |
+| `MAX_LISTING_CHARS` | No | Pasted-listing ceiling, default 200,000 |
 | `VLM_API_KEY`, `VLM_BASE_URL`, `VLM_MODEL` | No | Optional vision-model pass |
+
+### Rate limiting
+
+`/auth/login` and `/auth/register` are rate limited in-process, per IP **and** per
+e-mail address, so an attacker rotating addresses still cannot brute-force one
+officer's account. Being in-process, each worker keeps its own counters: behind
+more than one worker the effective limit multiplies by the worker count. For a
+multi-node deployment, enforce it at the reverse proxy or move the counters to
+Redis.
 
 Frontend: `VITE_API_URL` at build time, or change the API address in **Settings**
 at runtime.
@@ -153,7 +164,8 @@ within roughly a hundred inspections.
 - [ ] `.env` not committed (`git ls-files | grep -c "\.env$"` returns 0)
 - [ ] Demo accounts from `seed_demo.py` deleted or deactivated
 - [ ] HTTPS terminated in front of the API
-- [ ] `pytest` green
+- [ ] `pytest` green, and `npm test` in `frontend/` green
+- [ ] Rate limiting enforced at the proxy if running more than one worker
 
 > **If a credential has ever been committed, rotate it.** Rewriting git history
 > does not un-leak a secret that was pushed to a public repository; only changing

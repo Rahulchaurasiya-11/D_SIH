@@ -184,15 +184,74 @@ entering the pack dimensions; both are viable extensions.
 
 ---
 
-## 7. Testing
+## 7. Enforcement case lifecycle
 
-`backend/tests/` — 51 tests, no network, no credentials, isolated temp store.
+A scan produces a finding. Enforcement is what happens next, and the problem
+statement asks for a dashboard covering "inspections, violations and enforcement
+activities" — activities meaning outcomes, which have to be tracked.
+
+```
+        scan finds a contravention
+                  │
+                  ▼
+              ┌────────┐
+              │  OPEN  │  case number allocated: LM/2026/DEL/000042
+              └───┬────┘
+        ┌─────────┴──────────┐
+        ▼                    ▼
+┌────────────────┐      ┌────────┐
+│ NOTICE_ISSUED  │─────▶│ CLOSED │
+└───┬────────┬───┘      └────────┘
+    ▼        ▼               ▲
+┌─────────┐ ┌───────────┐    │
+│ COMPLIED│ │ ESCALATED │────┘
+└────┬────┘ └─────┬─────┘
+     └────────────┴──▶ CLOSED
+```
+
+Transitions are validated server-side against `CASE_TRANSITIONS`: a case cannot
+reach COMPLIED without a notice having been issued, and CLOSED is terminal.
+Advancing a case requires SENIOR_OFFICER or above — issuing a notice is an
+enforcement decision, not a data-entry step. Every transition appends to
+`case_history` with the officer, timestamp and note.
+
+A compliant pack opens no case. It is still recorded and searchable; there is
+simply nothing to enforce.
+
+### Where the package was found
+
+Every scan carries an `InspectionContext`: premises name, address, type, licence,
+and optionally GPS coordinates from the device. A notice under the Act is served
+on a person at a place, so a finding that records only "this pack was
+non-compliant" cannot support one. When the premises is left blank the report
+prints an explicit warning rather than quietly producing an incomplete notice.
+
+---
+
+## 8. Testing
+
+**Backend** — `backend/tests/`, 93 tests, no network, no credentials, isolated
+temp store.
 
 - `test_rules.py` — golden cases per statutory provision, pinning verdicts so a
   rule edit cannot silently change an outcome.
 - `test_api.py` — auth, role enforcement, inspector scoping, search filters,
   and that each export really is a PDF / DOCX / XLSX with the expected content.
+- `test_hardening.py` — the defects and gaps found in the post-build audit:
+  hostile search terms, rate limiting, password strength, upload ceilings,
+  premises capture, and every case-lifecycle transition including the illegal ones.
+
+One test (`-m slow`) exercises the real OCR engine end to end; the rest stub it,
+because a suite that takes minutes stops being run.
+
+**Frontend** — `frontend/src/**/*.test.{js,jsx}`, 29 tests under Vitest.
+
+- `useSubmitGuard` — that a double-tap cannot fire two requests.
+- `format` — that every rule id the engine emits has a readable label.
+- `I18nContext` — that the Hindi locale is genuinely complete, placeholders
+  survive translation, and a partial language falls back per key.
 
 ```bash
-cd backend && pytest -v
+cd backend  && pytest -v          # or: pytest -m "not slow"
+cd frontend && npm test
 ```

@@ -9,7 +9,10 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import (
+    APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status,
+)
+from pydantic import ValidationError
 
 from app.config import settings
 from app.core.ocr import engine_name, extract_segments_from_image, segments_from_plain_text
@@ -17,6 +20,9 @@ from app.db import repositories as repo
 from app.deps import can_view_inspection, get_current_user, require_role
 from app.engine.compliance_engine import LegalMetrologyComplianceEngine
 from app.models import (
+    CASE_TRANSITIONS,
+    CaseUpdateRequest,
+    InspectionContext,
     InspectionSummary,
     ListingAnalysisRequest,
     PaginatedInspections,
@@ -49,7 +55,29 @@ def _summarise(doc: Dict[str, Any]) -> InspectionSummary:
         source=doc.get("source", "image"),
         evidence_ids=doc.get("evidence_ids", []),
         is_manually_verified=doc.get("is_manually_verified", False),
+        case_number=doc.get("case_number", ""),
+        case_status=doc.get("case_status", ""),
+        premises_name=doc.get("premises_name", ""),
     )
+
+
+def _parse_context(raw: str) -> Dict[str, Any]:
+    """
+    Validates the multipart `context` field against `InspectionContext`.
+
+    Rejecting malformed context rather than silently dropping it matters: an
+    inspection recorded without the premises it came from is evidentially weak,
+    and the officer should be told the details did not save.
+    """
+    if not raw or not raw.strip():
+        return {}
+    try:
+        return InspectionContext.model_validate_json(raw).model_dump()
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Inspection context is not valid: %s" % exc,
+        )
 
 
 def _build_payload(report: Dict[str, Any], *, filename: str, segments: List[Dict[str, Any]],
@@ -86,14 +114,19 @@ async def analyze_package(
     ocr_lang: str = "auto",
     ai_engine: str = "rapidocr",
     persist: bool = True,
+    context: str = Form("", description="InspectionContext as a JSON object"),
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     """
     Primary scanning endpoint. Accepts up to four package angles, runs OCR over each,
     evaluates the aggregated text against the Legal Metrology rule engine, stores the
     photographs as evidence and persists the inspection.
+
+    `context` carries where the package was found (premises, address, coordinates).
+    It arrives as a JSON string because the request is multipart.
     """
     start = time.time()
+    inspection_context = _parse_context(context)
 
     uploads: List[UploadFile] = [f for f in (images or []) if f and f.filename]
     if not uploads and image and image.filename:
@@ -116,6 +149,14 @@ async def analyze_package(
         data = await upload.read()
         if not data:
             continue
+        if len(data) > settings.MAX_IMAGE_BYTES:
+            # Uploads are held in memory for OCR, so an unbounded file is a way to
+            # exhaust the process rather than merely a slow request.
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="'%s' is %.1f MB. The limit is %d MB per photograph."
+                       % (upload.filename, len(data) / 1048576, settings.MAX_IMAGE_BYTES // 1048576),
+            )
         raw_images.append((upload.filename, data))
         angle = ANGLE_LABELS[idx] if idx < len(ANGLE_LABELS) else "Angle %d" % (idx + 1)
 
@@ -182,10 +223,16 @@ async def analyze_package(
     )
 
     if persist:
-        doc = repo.inspections.create(payload, user, evidence_records, source="image")
+        doc = repo.inspections.create(
+            payload, user, evidence_records, source="image", context=inspection_context,
+        )
         payload["inspection_id"] = doc["id"]
+        payload["case_number"] = doc["case_number"]
+        payload["case_status"] = doc["case_status"]
+        payload["premises_name"] = doc["premises_name"]
         repo.audit_log.record(user["id"], user.get("full_name", ""), "SCAN_CREATED", doc["id"],
-                              "status=%s score=%s" % (payload["status"], payload["overall_score"]))
+                              "status=%s score=%s case=%s"
+                              % (payload["status"], payload["overall_score"], doc["case_number"] or "-"))
     return payload
 
 
@@ -305,6 +352,8 @@ def search_inspections(
     min_score: Optional[int] = Query(None, ge=0, le=100),
     max_score: Optional[int] = Query(None, ge=0, le=100),
     source: str = "",
+    case_status: str = "",
+    premises: str = "",
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     user: Dict[str, Any] = Depends(get_current_user),
@@ -318,6 +367,7 @@ def search_inspections(
         q=q, status=status_filter, rule=rule, officer_id=officer_id,
         date_from=date_from, date_to=date_to,
         min_score=min_score, max_score=max_score, source=source,
+        case_status=case_status, premises=premises,
     )
     items, total = repo.inspections.search(query, page=page, page_size=page_size)
     return PaginatedInspections(
@@ -347,6 +397,71 @@ def get_evidence(evidence_id: str, user: Dict[str, Any] = Depends(get_current_us
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence not found.")
     return Response(content=data, media_type="image/jpeg",
                     headers={"Cache-Control": "private, max-age=3600"})
+
+
+@router.patch("/inspections/{inspection_id}/case")
+def update_case(
+    inspection_id: str,
+    payload: CaseUpdateRequest,
+    user: Dict[str, Any] = Depends(require_role(Role.SENIOR_OFFICER)),
+):
+    """
+    Advances an enforcement case: notice issued, complied, escalated, closed.
+
+    Restricted to senior officers and above — issuing a notice or closing a case is
+    an enforcement decision, not a data entry step. Transitions are validated
+    against `CASE_TRANSITIONS`, so a case cannot skip from OPEN to COMPLIED without
+    a notice, and a closed case cannot be quietly reopened.
+    """
+    inspection = repo.inspections.by_id(inspection_id)
+    if not inspection:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found.")
+
+    current = inspection.get("case_status") or ""
+    if not current:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This inspection found no contravention, so it has no enforcement case.",
+        )
+
+    target = payload.case_status.value
+    if target == current:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The case is already '%s'." % current,
+        )
+
+    allowed = CASE_TRANSITIONS.get(current, [])
+    if target not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot move a case from '%s' to '%s'. Allowed: %s."
+                   % (current, target, ", ".join(allowed) or "none"),
+        )
+
+    repo.inspections.update_case(inspection_id, target, user, payload.note, payload.notice_reference)
+    repo.audit_log.record(
+        user["id"], user.get("full_name", ""), "CASE_" + target, inspection_id,
+        ("%s -> %s" % (current, target)) + (" | " + payload.note if payload.note else ""),
+    )
+    return repo.inspections.by_id(inspection_id)
+
+
+@router.get("/repeat-offenders")
+def repeat_offenders(
+    days: int = Query(90, ge=1, le=365),
+    minimum: int = Query(2, ge=2, le=50),
+    _: Dict[str, Any] = Depends(require_role(Role.SENIOR_OFFICER)),
+):
+    """
+    Brands contravening repeatedly across separate inspections.
+
+    One bad pack may be a printing error; the same brand failing the same rule in
+    several premises is a pattern worth acting on, and it is the difference between
+    a scanning tool and an enforcement tool.
+    """
+    rows = repo.inspections.repeat_offenders(days=days, minimum=minimum)
+    return {"window_days": days, "minimum_inspections": minimum, "count": len(rows), "offenders": rows}
 
 
 @router.get("/dashboard/stats")

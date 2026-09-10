@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     EVIDENCE_JPEG_QUALITY: int = 80
     MAX_IMAGES_PER_SCAN: int = 4
 
+    #: Per-image ceiling. Uploads are read fully into memory for OCR, so without a
+    #: bound one request can exhaust the process. 12 MB comfortably fits a modern
+    #: phone photo; anything larger is downscaled before OCR anyway.
+    MAX_IMAGE_BYTES: int = 12 * 1024 * 1024
+
+    #: Ceiling on pasted listing text, for the same reason.
+    MAX_LISTING_CHARS: int = 200_000
+
     @field_validator("CORS_ORIGINS")
     @classmethod
     def _reject_wildcard(cls, v: str) -> str:

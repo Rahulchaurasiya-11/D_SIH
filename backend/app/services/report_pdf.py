@@ -145,6 +145,9 @@ def render_pdf(inspection: Dict[str, Any]) -> bytes:
     # --- Inspection particulars --------------------------------------------
     story.append(Paragraph("1. INSPECTION PARTICULARS", s["h2"]))
     story.append(_kv_table([
+        [Paragraph("Case / file number", s["cellb"]),
+         Paragraph("<b>%s</b>" % c["case_number"], s["cell"]),
+         Paragraph("Case status", s["cellb"]), Paragraph(c["case_status"], s["cell"])],
         [Paragraph("Inspection ID", s["cellb"]), Paragraph(c["inspection_id"], s["cell"]),
          Paragraph("Date of inspection", s["cellb"]), Paragraph(c["created_at"], s["cell"])],
         [Paragraph("Product", s["cellb"]), Paragraph(c["product_name"], s["cell"]),
@@ -155,13 +158,37 @@ def render_pdf(inspection: Dict[str, Any]) -> bytes:
          Paragraph("Label language", s["cellb"]), Paragraph(str(c["language_profile"]), s["cell"])],
     ], [32 * mm, 58 * mm, 32 * mm, 58 * mm]))
 
+    # --- Premises -----------------------------------------------------------
+    # A notice is served on a person at a place. Without this section the report
+    # says a pack was non-compliant but not whose, or where.
+    story.append(Paragraph("2. PREMISES WHERE THE PACKAGE WAS FOUND", s["h2"]))
+    premises_rows = [
+        [Paragraph("Name of premises", s["cellb"]), Paragraph(c["premises_name"], s["cell"])],
+        [Paragraph("Address", s["cellb"]), Paragraph(c["premises_address"], s["cell"])],
+        [Paragraph("Type", s["cellb"]), Paragraph(c["premises_type"], s["cell"])],
+        [Paragraph("Licence / registration", s["cellb"]), Paragraph(c["premises_licence"], s["cell"])],
+        [Paragraph("Coordinates", s["cellb"]), Paragraph(c["coordinates"], s["cell"])],
+    ]
+    if c["remarks"]:
+        premises_rows.append(
+            [Paragraph("Officer's remarks", s["cellb"]), Paragraph(c["remarks"], s["cell"])]
+        )
+    story.append(_kv_table(premises_rows, [40 * mm, 140 * mm]))
+
+    if c["premises_name"] == "Not recorded":
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(
+            "<b>Note:</b> premises details were not recorded at the time of scanning. "
+            "They must be established before any notice is issued on this finding.",
+            s["small"]))
+
     if c["is_manually_verified"]:
         story += [Spacer(1, 4), Paragraph(
             "Fields verified/corrected by the inspecting officer: <b>%s</b>"
             % (", ".join(c["manual_fields_applied"]) or "yes"), s["small"])]
 
     # --- Declarations -------------------------------------------------------
-    story.append(Paragraph("2. MANDATORY DECLARATIONS DETECTED", s["h2"]))
+    story.append(Paragraph("3. MANDATORY DECLARATIONS DETECTED", s["h2"]))
     decl_rows = [[Paragraph("Declaration required", s["cellb"]),
                   Paragraph("Value found on package", s["cellb"]),
                   Paragraph("Rule", s["cellb"])]]
@@ -183,7 +210,7 @@ def render_pdf(inspection: Dict[str, Any]) -> bytes:
     story.append(decl)
 
     # --- Violations ---------------------------------------------------------
-    story.append(Paragraph("3. CONTRAVENTIONS IDENTIFIED (%d)" % len(c["violations"]), s["h2"]))
+    story.append(Paragraph("4. CONTRAVENTIONS IDENTIFIED (%d)" % len(c["violations"]), s["h2"]))
     if not c["violations"]:
         story.append(Paragraph(
             "No contravention was identified. All mandatory declarations verified by the "
@@ -222,7 +249,7 @@ def render_pdf(inspection: Dict[str, Any]) -> bytes:
 
     # --- Verified checks ----------------------------------------------------
     if c["passed_checks"]:
-        story.append(Paragraph("4. DECLARATIONS VERIFIED AS COMPLIANT (%d)" % len(c["passed_checks"]), s["h2"]))
+        story.append(Paragraph("5. DECLARATIONS VERIFIED AS COMPLIANT (%d)" % len(c["passed_checks"]), s["h2"]))
         rows = [[Paragraph("Rule", s["cellb"]), Paragraph("Verification", s["cellb"])]]
         for chk in c["passed_checks"]:
             rows.append([
@@ -242,7 +269,7 @@ def render_pdf(inspection: Dict[str, Any]) -> bytes:
     # --- Evidence photographs ----------------------------------------------
     thumbs = _evidence_flowables(c["evidence"])
     if thumbs:
-        story += [PageBreak(), Paragraph("5. PHOTOGRAPHIC EVIDENCE", s["h2"]), thumbs]
+        story += [PageBreak(), Paragraph("6. PHOTOGRAPHIC EVIDENCE", s["h2"]), thumbs]
 
     # --- Declaration & signature -------------------------------------------
     story += [

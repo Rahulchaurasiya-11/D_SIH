@@ -110,6 +110,9 @@ def render_docx(inspection: Dict[str, Any]) -> bytes:
     # 1. Particulars
     _heading(doc, "1. INSPECTION PARTICULARS")
     _kv_table(doc, [
+        ("Case / file number", c["case_number"]),
+        ("Case status", c["case_status"]),
+        ("Notice reference", c["notice_reference"]),
         ("Inspection ID", c["inspection_id"]),
         ("Date of inspection", c["created_at"]),
         ("Product", c["product_name"]),
@@ -120,13 +123,32 @@ def render_docx(inspection: Dict[str, Any]) -> bytes:
         ("Label language", c["language_profile"]),
     ])
 
+    # 2. Premises — a notice is served on a person at a place.
+    _heading(doc, "2. PREMISES WHERE THE PACKAGE WAS FOUND")
+    premises_rows = [
+        ("Name of premises", c["premises_name"]),
+        ("Address", c["premises_address"]),
+        ("Type", c["premises_type"]),
+        ("Licence / registration", c["premises_licence"]),
+        ("Coordinates", c["coordinates"]),
+    ]
+    if c["remarks"]:
+        premises_rows.append(("Officer's remarks", c["remarks"]))
+    _kv_table(doc, premises_rows)
+
+    if c["premises_name"] == "Not recorded":
+        warn = doc.add_paragraph()
+        _run(warn, "Note: premises details were not recorded at the time of scanning. "
+                   "They must be established before any notice is issued on this finding.",
+             size=8, italic=True, colour=DANGER)
+
     if c["is_manually_verified"]:
         note = doc.add_paragraph()
         _run(note, "Fields verified/corrected by the inspecting officer: %s"
              % (", ".join(c["manual_fields_applied"]) or "yes"), size=8, italic=True, colour=MUTED)
 
     # 2. Declarations
-    _heading(doc, "2. MANDATORY DECLARATIONS DETECTED")
+    _heading(doc, "3. MANDATORY DECLARATIONS DETECTED")
     table = doc.add_table(rows=1, cols=3)
     table.style = "Table Grid"
     for i, head in enumerate(["Declaration required", "Value found on package", "Rule"]):
@@ -141,7 +163,7 @@ def render_docx(inspection: Dict[str, Any]) -> bytes:
         _run(cells[2].paragraphs[0], rule, size=9)
 
     # 3. Violations
-    _heading(doc, "3. CONTRAVENTIONS IDENTIFIED (%d)" % len(c["violations"]))
+    _heading(doc, "4. CONTRAVENTIONS IDENTIFIED (%d)" % len(c["violations"]))
     if not c["violations"]:
         p = doc.add_paragraph()
         _run(p, "No contravention was identified. All mandatory declarations verified by the "
@@ -162,7 +184,7 @@ def render_docx(inspection: Dict[str, Any]) -> bytes:
 
     # 4. Verified checks
     if c["passed_checks"]:
-        _heading(doc, "4. DECLARATIONS VERIFIED AS COMPLIANT (%d)" % len(c["passed_checks"]))
+        _heading(doc, "5. DECLARATIONS VERIFIED AS COMPLIANT (%d)" % len(c["passed_checks"]))
         ok_table = doc.add_table(rows=1, cols=2)
         ok_table.style = "Table Grid"
         for i, head in enumerate(["Rule", "Verification"]):
@@ -180,7 +202,7 @@ def render_docx(inspection: Dict[str, Any]) -> bytes:
         if not data:
             continue
         if embedded == 0:
-            _heading(doc, "5. PHOTOGRAPHIC EVIDENCE")
+            _heading(doc, "6. PHOTOGRAPHIC EVIDENCE")
         try:
             doc.add_picture(io.BytesIO(data), width=Inches(3.2))
             cap = doc.paragraphs[-1]

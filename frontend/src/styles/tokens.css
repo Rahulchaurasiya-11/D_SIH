@@ -26,6 +26,12 @@
   --brand-ink: 255 255 255;
   --accent: 11 107 203;
 
+  /* Full-bleed identity panel (the sign-in aside). Deliberately does NOT invert
+     for dark mode: --brand lightens there so buttons stay legible, and a large
+     surface painted in it would glare against an otherwise dark page. */
+  --brand-panel: 27 77 137;
+  --brand-panel-ink: 255 255 255;
+
   /* Status. Chosen for >= 4.5:1 against their soft backgrounds. */
   --ok: 15 123 79;
   --ok-soft: 220 252 231;
@@ -53,6 +59,8 @@
   --brand-soft: 24 44 68;
   --brand-ink: 8 12 20;
   --accent: 122 179 245;
+  --brand-panel: 13 33 58;
+  --brand-panel-ink: 226 236 248;
 
   --ok: 74 201 141;
   --ok-soft: 16 51 38;
@@ -80,6 +88,8 @@
     --brand-soft: 24 44 68;
     --brand-ink: 8 12 20;
     --accent: 122 179 245;
+    --brand-panel: 13 33 58;
+    --brand-panel-ink: 226 236 248;
     --ok: 74 201 141;
     --ok-soft: 16 51 38;
     --warn: 233 168 74;

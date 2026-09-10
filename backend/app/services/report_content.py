@@ -9,12 +9,23 @@ that contradicts its own spreadsheet is worse than no notice at all.
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from app.models import CASE_STATUS_LABELS
+
 SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "ADVISORY": 4}
 
 STATUS_LABELS = {
     "COMPLIANT": "COMPLIANT",
     "NON_COMPLIANT": "NON-COMPLIANT",
     "PARTIALLY_COMPLIANT": "PARTIALLY COMPLIANT",
+}
+
+PREMISES_LABELS = {
+    "RETAIL": "Retail outlet",
+    "SUPERMARKET": "Supermarket",
+    "WHOLESALE": "Wholesale dealer",
+    "WAREHOUSE": "Warehouse / godown",
+    "ECOMMERCE": "E-commerce listing",
+    "OTHER": "Other",
 }
 
 DISCLAIMER = (
@@ -78,8 +89,26 @@ def build_report_content(inspection: Dict[str, Any]) -> Dict[str, Any]:
         ("Country of origin", meta.get("country_of_origin"), "Rule 6(10)"),
     ]
 
+    # Where the pack was found. A notice under the Act is served on a person at a
+    # place; a report that omits the premises cannot support one.
+    coords = ""
+    if inspection.get("latitude") is not None and inspection.get("longitude") is not None:
+        coords = "%.6f, %.6f" % (inspection["latitude"], inspection["longitude"])
+        if inspection.get("location_accuracy_m"):
+            coords += " (±%dm)" % round(inspection["location_accuracy_m"])
+
     return {
         "inspection_id": inspection.get("id", "-"),
+        "case_number": inspection.get("case_number") or "Not assigned",
+        "case_status": CASE_STATUS_LABELS.get(inspection.get("case_status", ""), "—"),
+        "notice_reference": inspection.get("notice_reference") or "—",
+        "premises_name": inspection.get("premises_name") or "Not recorded",
+        "premises_address": inspection.get("premises_address") or "Not recorded",
+        "premises_type": PREMISES_LABELS.get(inspection.get("premises_type", ""), "—"),
+        "premises_licence": inspection.get("premises_licence") or "—",
+        "coordinates": coords or "Not recorded",
+        "remarks": inspection.get("remarks") or "",
+        "case_history": inspection.get("case_history") or [],
         "generated_at": datetime.now().strftime("%d %B %Y, %H:%M"),
         "created_at": _fmt_datetime(inspection.get("created_at", "")),
         "officer_name": inspection.get("officer_name") or "-",

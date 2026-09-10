@@ -23,7 +23,15 @@ import { formatDate, ruleLabel, statusLabel, todayISO } from '../lib/format';
 
 const EMPTY_FILTERS = {
   q: '', status: '', rule: '', date_from: '', date_to: '',
-  min_score: '', max_score: '', source: '',
+  min_score: '', max_score: '', source: '', case_status: '', premises: '',
+};
+
+const CASE_TONE = {
+  OPEN: 'warn',
+  NOTICE_ISSUED: 'bad',
+  COMPLIED: 'ok',
+  ESCALATED: 'bad',
+  CLOSED: 'neutral',
 };
 
 const RULES = [
@@ -162,6 +170,21 @@ export default function Repository() {
                   </Select>
                 </Field>
 
+                <Field label={t('repo.caseStatus')}>
+                  <Select value={filters.case_status} onChange={set('case_status')}>
+                    <option value="">{t('common.all')}</option>
+                    {['OPEN', 'NOTICE_ISSUED', 'COMPLIED', 'ESCALATED', 'CLOSED'].map((state) => (
+                      <option key={state} value={state}>
+                        {t(`case.${state}`)}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label={t('repo.premises')}>
+                  <Input value={filters.premises} onChange={set('premises')} placeholder="Shop name" />
+                </Field>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Field label={t('repo.minScore')}>
                     <Input type="number" min={0} max={100} value={filters.min_score} onChange={set('min_score')} />
@@ -228,6 +251,7 @@ export default function Repository() {
                 <thead>
                   <tr className="border-b border-line text-left text-[12px] uppercase tracking-wide text-faint">
                     <th className="px-5 py-3 font-medium">Product</th>
+                    <th className="px-5 py-3 font-medium">Case</th>
                     <th className="px-5 py-3 font-medium">Status</th>
                     <th className="px-5 py-3 font-medium text-right">Score</th>
                     <th className="px-5 py-3 font-medium text-right">Issues</th>
@@ -242,7 +266,21 @@ export default function Repository() {
                         <Link to={`/inspections/${row.id}`} className="font-medium text-ink hover:text-brand">
                           {row.product_name}
                         </Link>
-                        <p className="text-[12px] text-faint">{row.brand || row.source}</p>
+                        <p className="text-[12px] text-faint">
+                          {row.premises_name || row.brand || row.source}
+                        </p>
+                      </td>
+                      <td className="px-5 py-3">
+                        {row.case_number ? (
+                          <>
+                            <p className="font-mono text-[12px] text-ink">{row.case_number}</p>
+                            <Badge tone={CASE_TONE[row.case_status] ?? 'neutral'}>
+                              {t(`case.${row.case_status}`)}
+                            </Badge>
+                          </>
+                        ) : (
+                          <span className="text-[12px] text-faint">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <Badge tone={statusTone(row.status)}>{statusLabel(row.status, t)}</Badge>
@@ -268,8 +306,11 @@ export default function Repository() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">{row.product_name}</p>
                       <p className="mt-0.5 text-[12px] text-faint">
-                        {row.brand || row.source} · {formatDate(row.created_at)}
+                        {row.premises_name || row.brand || row.source} · {formatDate(row.created_at)}
                       </p>
+                      {row.case_number && (
+                        <p className="mt-1 font-mono text-[11px] text-brand">{row.case_number}</p>
+                      )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">
                       <Badge tone={statusTone(row.status)}>{statusLabel(row.status, t)}</Badge>

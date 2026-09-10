@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # --------------------------------------------------------------------------- #
@@ -35,13 +35,54 @@ ROLE_LABELS: Dict[str, str] = {
 # Auth
 # --------------------------------------------------------------------------- #
 
+#: Rejected outright regardless of length. These are what a credential-stuffing
+#: list tries first, and an enforcement portal is a public-facing target.
+_COMMON_PASSWORDS = {
+    "password", "password1", "password123", "12345678", "123456789", "1234567890",
+    "qwerty123", "letmein", "welcome1", "admin123", "iloveyou", "abc12345",
+    "legalmetrology", "consumeraffairs",
+}
+
+
+def validate_password_strength(password: str) -> str:
+    """
+    Requires length plus variety, and rejects the obvious guesses.
+
+    Length alone is a weak rule: "password" clears an 8-character minimum, and it
+    is the first thing any attacker tries.
+    """
+    if len(password) < 10:
+        raise ValueError("Password must be at least 10 characters.")
+
+    lowered = password.lower()
+    if lowered in _COMMON_PASSWORDS or lowered.strip("0123456789!@#$") in _COMMON_PASSWORDS:
+        raise ValueError("That password is too common. Choose something less guessable.")
+
+    classes = sum([
+        any(c.islower() for c in password),
+        any(c.isupper() for c in password),
+        any(c.isdigit() for c in password),
+        any(not c.isalnum() for c in password),
+    ])
+    if classes < 3:
+        raise ValueError(
+            "Use at least three of: lower case, upper case, digits, symbols."
+        )
+    return password
+
+
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=256)
+    password: str = Field(min_length=10, max_length=256)
     full_name: str = Field(min_length=2, max_length=120)
     designation: str = Field(default="", max_length=120)
     jurisdiction: str = Field(default="", max_length=120)
     role: Role = Role.INSPECTOR
+
+    @field_validator("password")
+    @classmethod
+    def _strong_enough(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class LoginRequest(BaseModel):
@@ -71,6 +112,81 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in_minutes: int
     user: UserPublic
+
+
+# --------------------------------------------------------------------------- #
+# Enforcement case lifecycle
+# --------------------------------------------------------------------------- #
+
+class CaseStatus(str, Enum):
+    """
+    Where an inspection sits in the enforcement process.
+
+    A scan by itself is a finding, not an outcome. The problem statement asks for a
+    dashboard monitoring "inspections, violations and enforcement activities" -
+    activities means what happened next, which requires tracking it.
+    """
+    OPEN = "OPEN"                      # recorded, no action taken yet
+    NOTICE_ISSUED = "NOTICE_ISSUED"    # statutory notice served on the packer/seller
+    COMPLIED = "COMPLIED"              # re-inspected and found corrected
+    ESCALATED = "ESCALATED"            # referred for prosecution / compounding
+    CLOSED = "CLOSED"                  # no further action (incl. false positives)
+
+
+#: Transitions an officer may make. Anything not listed is refused, so a case
+#: cannot jump from OPEN straight to COMPLIED without a notice, and a closed case
+#: cannot be quietly reopened into an active state.
+CASE_TRANSITIONS: Dict[str, List[str]] = {
+    CaseStatus.OPEN.value: [CaseStatus.NOTICE_ISSUED.value, CaseStatus.CLOSED.value],
+    CaseStatus.NOTICE_ISSUED.value: [
+        CaseStatus.COMPLIED.value, CaseStatus.ESCALATED.value, CaseStatus.CLOSED.value,
+    ],
+    CaseStatus.COMPLIED.value: [CaseStatus.CLOSED.value],
+    CaseStatus.ESCALATED.value: [CaseStatus.CLOSED.value],
+    CaseStatus.CLOSED.value: [],
+}
+
+CASE_STATUS_LABELS: Dict[str, str] = {
+    CaseStatus.OPEN.value: "Open",
+    CaseStatus.NOTICE_ISSUED.value: "Notice issued",
+    CaseStatus.COMPLIED.value: "Complied",
+    CaseStatus.ESCALATED.value: "Escalated",
+    CaseStatus.CLOSED.value: "Closed",
+}
+
+
+class PremisesType(str, Enum):
+    RETAIL = "RETAIL"
+    SUPERMARKET = "SUPERMARKET"
+    WHOLESALE = "WHOLESALE"
+    WAREHOUSE = "WAREHOUSE"
+    ECOMMERCE = "ECOMMERCE"
+    OTHER = "OTHER"
+
+
+class InspectionContext(BaseModel):
+    """
+    Where and in what circumstances the package was found.
+
+    A compliance finding with no record of the premises is evidentially thin: a
+    notice under the Act is served on a person at a place, and "this pack was
+    non-compliant" does not say whose pack, in whose shop, on what date. This is
+    submitted alongside a scan.
+    """
+    premises_name: str = Field(default="", max_length=200)
+    premises_address: str = Field(default="", max_length=400)
+    premises_type: PremisesType = PremisesType.RETAIL
+    premises_licence: str = Field(default="", max_length=80, description="Trade/GST/Legal Metrology licence, if shown")
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    location_accuracy_m: Optional[float] = Field(default=None, ge=0)
+    remarks: str = Field(default="", max_length=2000)
+
+
+class CaseUpdateRequest(BaseModel):
+    case_status: CaseStatus
+    note: str = Field(default="", max_length=2000)
+    notice_reference: str = Field(default="", max_length=120)
 
 
 # --------------------------------------------------------------------------- #
@@ -133,6 +249,9 @@ class InspectionSummary(BaseModel):
     source: str = "image"
     evidence_ids: List[str] = Field(default_factory=list)
     is_manually_verified: bool = False
+    case_number: str = ""
+    case_status: str = ""
+    premises_name: str = ""
 
 
 class PaginatedInspections(BaseModel):

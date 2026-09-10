@@ -3,7 +3,10 @@ import {
   CalendarDays,
   CheckCircle2,
   Gauge,
+  Gavel,
+  Repeat,
   ScanLine,
+  Store,
   TrendingUp,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -80,6 +83,7 @@ export default function Dashboard() {
 
   const [days, setDays] = useState(30);
   const [stats, setStats] = useState(null);
+  const [offenders, setOffenders] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -93,6 +97,12 @@ export default function Dashboard() {
       .then((data) => !cancelled && setStats(data))
       .catch((err) => !cancelled && setError(err.message))
       .finally(() => !cancelled && setLoading(false));
+
+    // Senior officers and above only; a 403 for an inspector is expected, not an error.
+    api.dashboard
+      .repeatOffenders(Math.max(days, 90))
+      .then((data) => !cancelled && setOffenders(data.offenders ?? []))
+      .catch(() => !cancelled && setOffenders([]));
 
     return () => {
       cancelled = true;
@@ -209,6 +219,48 @@ export default function Dashboard() {
             />
           </div>
 
+          {/* Enforcement activity. Detection is half the picture an official needs;
+              the other half is what happened to the findings. */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat
+              label={t('dashboard.openCases')}
+              value={stats.open_cases ?? 0}
+              tone={(stats.open_cases ?? 0) > 0 ? 'warn' : 'ok'}
+              sub={`${stats.concluded_cases ?? 0} concluded`}
+              icon={Gavel}
+            />
+            <Stat
+              label={t('dashboard.recoveryRate')}
+              value={`${stats.compliance_recovery_rate ?? 0}%`}
+              tone={(stats.compliance_recovery_rate ?? 0) >= 60 ? 'ok' : 'warn'}
+              sub="of concluded cases complied"
+              icon={CheckCircle2}
+            />
+            <Stat
+              label={t('dashboard.premisesCovered')}
+              value={stats.premises_covered ?? 0}
+              icon={Store}
+            />
+            <Card className="p-4">
+              <p className="text-[13px] font-medium text-muted">{t('dashboard.caseActivity')}</p>
+              <ul className="mt-2.5 space-y-1">
+                {(stats.cases_by_status ?? [])
+                  .filter((row) => row.count > 0)
+                  .map((row) => (
+                    <li key={row.case_status} className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[12px] text-muted">
+                        {t(`case.${row.case_status}`)}
+                      </span>
+                      <span className="tnum text-[13px] font-semibold text-ink">{row.count}</span>
+                    </li>
+                  ))}
+                {(stats.cases_by_status ?? []).every((row) => row.count === 0) && (
+                  <li className="text-[12px] text-faint">{t('common.none')}</li>
+                )}
+              </ul>
+            </Card>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <ChartCard title={t('dashboard.trend')} subtitle={t('dashboard.window', { days })}>
@@ -320,6 +372,45 @@ export default function Dashboard() {
               </CardBody>
             </Card>
           </div>
+
+          {offenders.length > 0 && (
+            <Card>
+              <CardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    <Repeat className="h-4 w-4 text-bad" aria-hidden />
+                    {t('dashboard.repeatOffenders')}
+                  </span>
+                }
+                subtitle={t('dashboard.repeatOffendersSub')}
+              />
+              <CardBody className="p-0">
+                <ul className="divide-y divide-line">
+                  {offenders.slice(0, 6).map((row) => (
+                    <li key={row.brand} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{row.brand}</p>
+                        <p className="text-[12px] text-faint">
+                          {t('dashboard.inspectionsCount', { count: row.inspections })} ·{' '}
+                          {t('dashboard.premisesCount', { count: row.distinct_premises })}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(row.top_rules ?? []).map((rule) => (
+                          <Badge key={rule.rule_id} tone="bad">
+                            {ruleLabel(rule.rule_id)} ×{rule.count}
+                          </Badge>
+                        ))}
+                      </div>
+                      {row.open_cases > 0 && (
+                        <Badge tone="warn">{row.open_cases} open</Badge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </CardBody>
+            </Card>
+          )}
 
           <Card>
             <CardHeader

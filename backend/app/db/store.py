@@ -70,7 +70,15 @@ def _match_condition(actual: Any, condition: Any) -> bool:
             except TypeError:
                 return False
         if op == "$regex":
-            if not isinstance(av, str) or not re.search(operand, av, re.IGNORECASE):
+            if not isinstance(av, str):
+                return False
+            try:
+                if not re.search(operand, av, re.IGNORECASE):
+                    return False
+            except re.error:
+                # A malformed pattern must not take the endpoint down. Callers are
+                # expected to escape user input (see `literal_regex`); this is the
+                # backstop for anything that slips through.
                 return False
         if op == "$exists":
             if (av is not None) != bool(operand):
@@ -190,6 +198,19 @@ class JsonBackend:
                     return True
         return False
 
+    def next_sequence(self, name: str) -> int:
+        """Monotonic counter, serialised by the same lock that guards writes."""
+        with self._lock:
+            docs = self._load("_counters")
+            for doc in docs:
+                if doc.get("id") == name:
+                    doc["value"] = int(doc.get("value", 0)) + 1
+                    self._flush("_counters")
+                    return doc["value"]
+            docs.append({"id": name, "value": 1})
+            self._flush("_counters")
+            return 1
+
     def put_blob(self, blob_id: str, data: bytes) -> str:
         blobs = os.path.join(self.root, "blobs")
         os.makedirs(blobs, exist_ok=True)
@@ -256,6 +277,18 @@ class MongoBackend:
     def delete_one(self, collection: str, query: Dict[str, Any]) -> bool:
         return self.db[collection].delete_one(query).deleted_count > 0
 
+    def next_sequence(self, name: str) -> int:
+        """Atomic server-side increment, so concurrent workers cannot collide."""
+        import pymongo
+
+        doc = self.db["_counters"].find_one_and_update(
+            {"_id": name},
+            {"$inc": {"value": 1}},
+            upsert=True,
+            return_document=pymongo.ReturnDocument.AFTER,
+        )
+        return int(doc["value"])
+
     def put_blob(self, blob_id: str, data: bytes) -> str:
         self.fs.put(data, filename=blob_id, _id=blob_id)
         return blob_id
@@ -304,3 +337,15 @@ def backend_name() -> str:
 
 def new_id(prefix: str) -> str:
     return prefix + "_" + uuid.uuid4().hex[:16]
+
+
+def literal_regex(text: str, max_length: int = 120) -> str:
+    """
+    Escapes user input for use as a `$regex` operand.
+
+    Search terms come straight from an officer's keyboard. Unescaped, a bare "["
+    is an invalid pattern (500 on the JSON backend) and something like "(a+)+$"
+    is a catastrophic-backtracking denial of service against both backends. The
+    length cap bounds the work a single query can ask for.
+    """
+    return re.escape((text or "").strip()[:max_length])

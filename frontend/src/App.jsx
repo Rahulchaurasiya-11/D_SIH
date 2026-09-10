@@ -5,26 +5,32 @@
  * useState hooks and every screen at once. Screens now live in `src/routes`.
  */
 
-import { Suspense, lazy } from 'react';
-import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { Suspense, lazy } from "react";
+import {
+  Navigate,
+  Route,
+  BrowserRouter as Router,
+  Routes,
+} from "react-router-dom";
 
-import AppShell from './components/layout/AppShell';
-import { Spinner } from './components/ui';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { I18nProvider } from './context/I18nContext';
-import { ThemeProvider } from './context/ThemeContext';
+import ErrorBoundary from "./components/ErrorBoundary";
+import AppShell from "./components/layout/AppShell";
+import { Spinner } from "./components/ui";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { I18nProvider } from "./context/I18nContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
-import Login from './routes/Login';
-import Scan from './routes/Scan';
+import Login from "./routes/Login";
+import Scan from "./routes/Scan";
 
 // Split off the heavier screens. The dashboard pulls in the whole charting
 // library, which an inspector scanning packages in a shop never needs to download.
-const Dashboard = lazy(() => import('./routes/Dashboard'));
-const Repository = lazy(() => import('./routes/Repository'));
-const InspectionDetail = lazy(() => import('./routes/InspectionDetail'));
-const Rules = lazy(() => import('./routes/Rules'));
-const Officers = lazy(() => import('./routes/Officers'));
-const SettingsPage = lazy(() => import('./routes/Settings'));
+const Dashboard = lazy(() => import("./routes/Dashboard"));
+const Repository = lazy(() => import("./routes/Repository"));
+const InspectionDetail = lazy(() => import("./routes/InspectionDetail"));
+const Rules = lazy(() => import("./routes/Rules"));
+const Officers = lazy(() => import("./routes/Officers"));
+const SettingsPage = lazy(() => import("./routes/Settings"));
 
 function FullPageSpinner() {
   return (
@@ -57,50 +63,57 @@ function RedirectIfAuthed({ children }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <I18nProvider>
-        <Router>
-          <AuthProvider>
-            <Routes>
-              <Route
-                path="/login"
-                element={
-                  <RedirectIfAuthed>
-                    <Login />
-                  </RedirectIfAuthed>
-                }
-              />
-
-              <Route
-                element={
-                  <RequireAuth>
-                    <Suspense fallback={<FullPageSpinner />}>
-                      <AppShell />
-                    </Suspense>
-                  </RequireAuth>
-                }
-              >
-                <Route index element={<Dashboard />} />
-                <Route path="scan" element={<Scan />} />
-                <Route path="repository" element={<Repository />} />
-                <Route path="inspections/:id" element={<InspectionDetail />} />
-                <Route path="rules" element={<Rules />} />
+    // Outermost, so a failure inside any provider or screen still renders a
+    // recoverable page rather than a blank one.
+    <ErrorBoundary>
+      <ThemeProvider>
+        <I18nProvider>
+          <Router>
+            <AuthProvider>
+              <Routes>
                 <Route
-                  path="officers"
+                  path="/login"
                   element={
-                    <RequireRole role="ADMIN">
-                      <Officers />
-                    </RequireRole>
+                    <RedirectIfAuthed>
+                      <Login />
+                    </RedirectIfAuthed>
                   }
                 />
-                <Route path="settings" element={<SettingsPage />} />
-              </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AuthProvider>
-        </Router>
-      </I18nProvider>
-    </ThemeProvider>
+                <Route
+                  element={
+                    <RequireAuth>
+                      <Suspense fallback={<FullPageSpinner />}>
+                        <AppShell />
+                      </Suspense>
+                    </RequireAuth>
+                  }
+                >
+                  <Route index element={<Dashboard />} />
+                  <Route path="scan" element={<Scan />} />
+                  <Route path="repository" element={<Repository />} />
+                  <Route
+                    path="inspections/:id"
+                    element={<InspectionDetail />}
+                  />
+                  <Route path="rules" element={<Rules />} />
+                  <Route
+                    path="officers"
+                    element={
+                      <RequireRole role="ADMIN">
+                        <Officers />
+                      </RequireRole>
+                    }
+                  />
+                  <Route path="settings" element={<SettingsPage />} />
+                </Route>
+
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </AuthProvider>
+          </Router>
+        </I18nProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

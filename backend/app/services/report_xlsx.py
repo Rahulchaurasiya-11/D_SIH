@@ -54,19 +54,22 @@ def render_xlsx(inspections: List[Dict[str, Any]], title: str = "Compliance expo
     ws["A2"] = "Legal Metrology (Packaged Commodities) Rules, 2011  -  %d record(s)" % len(inspections)
     ws["A2"].font = Font(size=9, color="64748B")
 
-    headers = ["Inspection ID", "Date", "Product", "Brand", "Status", "Score",
-               "Violations", "Rules contravened", "Officer", "Jurisdiction",
-               "Source", "MRP", "Net quantity", "Mfg / packing date",
-               "Consumer care", "Country of origin", "Officer verified"]
+    headers = ["Case number", "Case status", "Inspection ID", "Date", "Product", "Brand",
+               "Status", "Score", "Violations", "Rules contravened",
+               "Premises", "Premises address", "Coordinates",
+               "Officer", "Jurisdiction", "Source", "MRP", "Net quantity",
+               "Mfg / packing date", "Consumer care", "Country of origin", "Officer verified"]
     _write_header(ws, headers, row=4)
 
     for r, inspection in enumerate(inspections, start=5):
         c = build_report_content(inspection)
         decl = {label: value for label, value, _ in c["declarations"]}
         values = [
+            c["case_number"], c["case_status"],
             c["inspection_id"], c["created_at"], c["product_name"], c["brand"],
             c["status_label"], c["overall_score"], len(c["violations"]),
             ", ".join(v.get("rule_id", "") for v in c["violations"]),
+            c["premises_name"], c["premises_address"], c["coordinates"],
             c["officer_name"], c["jurisdiction"], c["source"].title(),
             decl.get("Maximum Retail Price (inclusive of all taxes)", "-"),
             decl.get("Net quantity", "-"),
@@ -78,18 +81,18 @@ def render_xlsx(inspections: List[Dict[str, Any]], title: str = "Compliance expo
         for col, value in enumerate(values, 1):
             cell = ws.cell(row=r, column=col, value=value)
             cell.border = BORDER
-            cell.alignment = Alignment(vertical="top", wrap_text=col in (3, 8, 15))
-            if col == 5:
+            cell.alignment = Alignment(vertical="top", wrap_text=col in (5, 10, 11, 12, 20))
+            if col == 7:
                 cell.fill = STATUS_FILL.get(c["status"], PatternFill())
                 cell.font = Font(bold=True, size=10)
 
-    _autosize(ws, [22, 22, 30, 18, 18, 8, 10, 34, 20, 18, 12, 26, 18, 20, 30, 16, 14])
+    _autosize(ws, [20, 14, 22, 22, 30, 18, 18, 8, 10, 34, 24, 34, 20, 20, 18, 12, 26, 18, 20, 30, 16, 14])
     ws.auto_filter.ref = "A4:%s%d" % (get_column_letter(len(headers)), max(5, 4 + len(inspections)))
 
     # --- Sheet 2: one row per violation ------------------------------------
     vs = wb.create_sheet("Violations")
-    v_headers = ["Inspection ID", "Product", "Brand", "Rule ID", "Rule",
-                 "Severity", "Legal reference", "Finding", "Evidence",
+    v_headers = ["Case number", "Inspection ID", "Product", "Brand", "Premises",
+                 "Rule ID", "Rule", "Severity", "Legal reference", "Finding", "Evidence",
                  "Required action", "Penalty band", "Officer", "Date"]
     _write_header(vs, v_headers)
 
@@ -98,7 +101,8 @@ def render_xlsx(inspections: List[Dict[str, Any]], title: str = "Compliance expo
         c = build_report_content(inspection)
         for v in c["violations"]:
             values = [
-                c["inspection_id"], c["product_name"], c["brand"],
+                c["case_number"], c["inspection_id"], c["product_name"], c["brand"],
+                c["premises_name"],
                 v.get("rule_id", ""), v.get("rule_name", ""),
                 str(v.get("severity", "")).upper(), v.get("legal_reference", ""),
                 v.get("description", ""), v.get("found_text", ""),
@@ -108,10 +112,10 @@ def render_xlsx(inspections: List[Dict[str, Any]], title: str = "Compliance expo
             for col, value in enumerate(values, 1):
                 cell = vs.cell(row=row, column=col, value=value)
                 cell.border = BORDER
-                cell.alignment = Alignment(vertical="top", wrap_text=col in (5, 7, 8, 9, 10))
+                cell.alignment = Alignment(vertical="top", wrap_text=col in (7, 9, 10, 11, 12))
             row += 1
 
-    _autosize(vs, [22, 26, 16, 26, 32, 12, 34, 40, 30, 40, 22, 20, 22])
+    _autosize(vs, [20, 22, 26, 16, 24, 26, 32, 12, 34, 40, 30, 40, 22, 20, 22])
     vs.auto_filter.ref = "A1:%s%d" % (get_column_letter(len(v_headers)), max(2, row - 1))
 
     # --- Sheet 3: summary ---------------------------------------------------

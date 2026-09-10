@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button, Checkbox, ErrorNote, Field, Input, Modal } from '../../components/ui';
 import { useI18n } from '../../context/I18nContext';
 import { api } from '../../lib/api';
+import { useSubmitGuard } from '../../lib/useSubmitGuard';
 
 /**
  * Inspector correction pass.
@@ -27,8 +28,32 @@ export default function VerifyPanel({ open, onClose, result, onVerified }) {
   const { t } = useI18n();
   const [values, setValues] = useState({});
   const [taxes, setTaxes] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const set = (key) => (event) => setValues((prev) => ({ ...prev, [key]: event.target.value }));
+
+  const [runVerify, busy, error, clearError] = useSubmitGuard(async () => {
+    // Send only what the officer actually filled in; blank fields must not
+    // overwrite a correct reading with an empty string.
+    const overrides = { taxes_included: taxes };
+    Object.entries(values).forEach(([key, value]) => {
+      if (String(value).trim()) overrides[key] = String(value).trim();
+    });
+
+    const revised = await api.scan.verify({
+      inspection_id: result.inspection_id,
+      segments: result.raw_segments || [],
+      image_dimensions: result.image_meta
+        ? [result.image_meta.height, result.image_meta.width]
+        : undefined,
+      manual_overrides: overrides,
+    });
+    onVerified({ ...revised, evidence: result.evidence, inspection_id: result.inspection_id });
+    onClose();
+  });
+
+  const submit = (event) => {
+    event.preventDefault();
+    runVerify();
+  };
 
   // Seed from what the engine read, so the officer edits rather than retypes.
   useEffect(() => {
@@ -40,40 +65,8 @@ export default function VerifyPanel({ open, onClose, result, onVerified }) {
     });
     setValues(seeded);
     setTaxes(Boolean(meta.taxes_included));
-    setError('');
-  }, [open, result]);
-
-  const set = (key) => (event) => setValues((prev) => ({ ...prev, [key]: event.target.value }));
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setError('');
-    setBusy(true);
-
-    // Send only what the officer actually filled in; blank fields must not
-    // overwrite a correct reading with an empty string.
-    const overrides = { taxes_included: taxes };
-    Object.entries(values).forEach(([key, value]) => {
-      if (String(value).trim()) overrides[key] = String(value).trim();
-    });
-
-    try {
-      const revised = await api.scan.verify({
-        inspection_id: result.inspection_id,
-        segments: result.raw_segments || [],
-        image_dimensions: result.image_meta
-          ? [result.image_meta.height, result.image_meta.width]
-          : undefined,
-        manual_overrides: overrides,
-      });
-      onVerified({ ...revised, evidence: result.evidence, inspection_id: result.inspection_id });
-      onClose();
-    } catch (err) {
-      setError(err.message || t('common.error'));
-    } finally {
-      setBusy(false);
-    }
-  };
+    clearError();
+  }, [open, result, clearError]);
 
   return (
     <Modal

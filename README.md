@@ -19,7 +19,9 @@ then produces a compliance report an enforcement officer can actually issue.
 | **Show** | Bounding boxes drawn over the photograph, so an officer sees exactly where each declaration was read from. |
 | **Correct** | Any OCR misread can be corrected and the rules re-run, so a bad frame never becomes a wrongful notice. |
 | **Report** | PDF with real selectable text, an **editable Word notice**, and bulk Excel export. |
-| **Track** | Searchable repository of every inspection, an enforcement dashboard, and role-based access for Inspector / Senior Officer / Administrator. |
+| **Record** | Where the pack was found — premises, address, licence, GPS. A notice is served on a person at a place; a finding without one cannot support it. |
+| **Pursue** | Each contravention opens a numbered case (`LM/2026/DEL/000042`) that moves Open → Notice issued → Complied / Escalated → Closed, with a full history. |
+| **Track** | Searchable repository, an enforcement dashboard covering outcomes as well as findings, repeat-offender detection, and role-based access for Inspector / Senior Officer / Administrator. |
 
 ---
 
@@ -70,7 +72,7 @@ credentials. **Demonstration only — never deploy these accounts.**
 | Compliance reports and violation summaries | `app/services/report_*.py` |
 | Repository of scanned products and history | Repository screen · `GET /inspections` |
 | Search and retrieval | Full-text + status, rule, date, score, officer, source |
-| Dashboards for enforcement officials | Dashboard screen · `GET /dashboard/stats` |
+| Dashboards for enforcement officials | Dashboard screen · `GET /dashboard/stats` — findings **and** enforcement activity |
 | Role-based access and secure authentication | JWT + bcrypt, 3 roles, enforced server-side |
 | Export to PDF **and editable formats** | PDF · DOCX · XLSX |
 | Photographs and supporting evidence | Downscaled and stored, linked to the inspection |
@@ -79,20 +81,26 @@ credentials. **Demonstration only — never deploy these accounts.**
 
 ---
 
-## An honest limitation
+## Honest limitations
 
-Rule 9 and Schedule II prescribe minimum character heights **in millimetres**.
+**Font height is an estimate, not a measurement.** Rule 9 and Schedule II prescribe
+minimum character heights **in millimetres**. A photograph has no physical scale, so
+without a size reference in the frame or the pack's real dimensions, millimetres
+cannot be derived from pixels. Font findings are therefore reported as an
+**advisory estimate** and labelled as such in the report — a screening signal that
+tells an officer which packs to go and measure, not an invented number. How to make
+it definitive is in [`docs/RULE_COVERAGE.md`](docs/RULE_COVERAGE.md).
 
-A photograph has no physical scale. Without a reference object of known size in the
-frame, or the pack's real dimensions, millimetres cannot be derived from pixels.
+**There is no offline mode.** The browser can read text when the server is
+unreachable, but compliance is always decided server-side — deliberately, so a
+phone and the server can never disagree about whether a package is lawful. The
+consequence is that an inspector with no signal cannot complete a scan. A proper
+fix is a service worker plus a queue of pending scans that syncs on reconnect; it
+is the largest remaining gap and is not built.
 
-So the system reports font findings as an **advisory estimate** based on character
-height relative to the display panel, labels them as such in the report, and treats
-them as a screening signal — it tells an officer which packs to go and measure. It
-does not print an invented millimetre figure.
-
-Full details, and how to make the check definitive, are in
-[`docs/RULE_COVERAGE.md`](docs/RULE_COVERAGE.md).
+**Rate limiting is per process.** Behind more than one worker the effective limit
+multiplies by the worker count. Enforce it at the reverse proxy, or move the
+counters to Redis. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ---
 
@@ -110,7 +118,7 @@ backend/
     services/          report_pdf · report_docx · report_xlsx · listing_parser
     db/                store (MongoDB | JSON) → repositories
     data/              rule set as CSV, hot-reloadable
-  tests/               51 tests, no network, no credentials
+  tests/               93 tests, no network, no credentials
   scripts/seed_demo.py
 
 frontend/src/
@@ -152,11 +160,15 @@ CSV* — no developer, no redeploy.
 ## Tests
 
 ```bash
-cd backend && pytest -v      # 51 tests
+cd backend  && pytest -v     # 93 tests  (pytest -m "not slow" skips the real-OCR run)
+cd frontend && npm test      # 29 tests
 ```
 
 Golden cases pin the verdict for each statutory provision, so a future rule edit
-that changes an outcome fails loudly instead of silently.
+that changes an outcome fails loudly instead of silently. `test_hardening.py`
+covers the defects found in a post-build audit — hostile search input, brute-force
+protection, upload ceilings, premises capture, and every case transition including
+the illegal ones.
 
 ---
 
