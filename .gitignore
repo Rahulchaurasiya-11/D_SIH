@@ -39,3 +39,7 @@ frontend/.env
 # Evidence / uploads / generated reports
 backend/uploads/
 backend/reports_out/
+
+# Runtime document store (local JSON backend): inspections, evidence blobs and
+# password hashes. Runtime state, never source.
+backend/app/data/_store/
