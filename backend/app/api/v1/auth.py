@@ -5,7 +5,12 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.config import settings
-from app.core.ratelimit import client_key, login_limiter, register_limiter
+from app.core.ratelimit import (
+    client_key,
+    login_email_limiter,
+    login_ip_limiter,
+    register_limiter,
+)
 from app.core.security import (
     TOKEN_TYPE_REFRESH,
     create_access_token,
@@ -97,13 +102,15 @@ def register(payload: RegisterRequest, request: Request):
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, request: Request):
-    # Limited twice on purpose. Per-IP stops a single host hammering the endpoint;
-    # per-e-mail stops an attacker who rotates IPs (or spoofs X-Forwarded-For)
-    # from brute-forcing one officer's account.
+    # Two budgets, sized differently on purpose. The per-account one is tight -
+    # it is what stops a targeted brute force, and it costs a legitimate officer
+    # nothing. The per-address one is loose, because a Legal Metrology office
+    # shares a single public IP and a tight budget there would let one mistyped
+    # password lock out every inspector in the building.
     email_key = payload.email.lower().strip()
-    _enforce(login_limiter, client_key(request, "login"),
-             "Too many sign-in attempts. Try again in a few minutes.")
-    _enforce(login_limiter, "email:" + email_key,
+    _enforce(login_ip_limiter, client_key(request, "login"),
+             "Too many sign-in attempts from this network. Try again in a few minutes.")
+    _enforce(login_email_limiter, "email:" + email_key,
              "Too many sign-in attempts for this account. Try again in a few minutes.")
 
     user = repo.users.by_email(payload.email)
@@ -120,10 +127,10 @@ def login(payload: LoginRequest, request: Request):
             detail="This account has been deactivated. Contact your administrator.",
         )
 
-    # A correct password clears the budget, so an officer who mistyped a few times
-    # is not locked out for the rest of the window.
-    login_limiter.reset(client_key(request, "login"))
-    login_limiter.reset("email:" + email_key)
+    # A correct password clears both budgets, so an officer who mistyped a few
+    # times is not locked out for the rest of the window.
+    login_ip_limiter.reset(client_key(request, "login"))
+    login_email_limiter.reset("email:" + email_key)
 
     repo.audit_log.record(user["id"], user.get("full_name", ""), "LOGIN", user["id"])
     return _issue(user)

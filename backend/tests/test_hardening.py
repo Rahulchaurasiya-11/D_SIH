@@ -71,13 +71,29 @@ def test_sliding_window_reset_clears_budget():
     assert limiter.check("k")[0] is True
 
 
-def test_repeated_bad_passwords_are_rate_limited(client):
+def test_repeated_bad_passwords_against_one_account_are_limited(client):
     """Without this, /auth/login is a password oracle at network speed."""
     body = {"email": "ratelimit-target@lm.gov.in", "password": "WrongPassword#1"}
     codes = [client.post("/api/v1/auth/login", json=body).status_code for _ in range(12)]
     assert 429 in codes, codes
     # The lockout must arrive before a realistic guessing budget is spent.
     assert codes.index(429) <= 9
+
+
+def test_one_account_lockout_does_not_lock_the_whole_office(client, inspector):
+    """
+    A Legal Metrology office shares one public IP. If a per-address budget were as
+    tight as the per-account one, a single colleague mistyping their password
+    would lock out every inspector in the building.
+    """
+    for _ in range(12):
+        client.post("/api/v1/auth/login",
+                    json={"email": "colleague@lm.gov.in", "password": "WrongPassword#1"})
+
+    # Same address, different account, correct password: must still succeed.
+    response = client.post("/api/v1/auth/login",
+                           json={"email": "inspector@lm.gov.in", "password": "InspectorPass#2026"})
+    assert response.status_code == 200, response.text
 
 
 def test_rate_limited_response_carries_retry_after(client):

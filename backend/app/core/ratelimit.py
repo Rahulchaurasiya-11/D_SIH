@@ -59,11 +59,21 @@ class SlidingWindowLimiter:
             self._hits.pop(key, None)
 
 
-#: Password attempts. Tight, because each one is a guess at a real credential.
-login_limiter = SlidingWindowLimiter(limit=8, window_seconds=300)
+#: Failed attempts against ONE account. Tight: this is what actually stops a
+#: targeted brute force, and it costs a legitimate officer nothing — they know
+#: their own password, and a success clears the budget.
+login_email_limiter = SlidingWindowLimiter(limit=8, window_seconds=300)
+
+#: Failed attempts from one address, across all accounts. Deliberately much
+#: looser than the per-account limit: a Legal Metrology office puts every
+#: inspector behind one public IP, so a tight per-IP budget means one colleague
+#: fat-fingering a password locks out the whole office. The per-account limit is
+#: the real defence; this one only blunts a spray across many accounts.
+login_ip_limiter = SlidingWindowLimiter(limit=50, window_seconds=300)
 
 #: Account creation, to stop a public deployment being filled with junk accounts.
-register_limiter = SlidingWindowLimiter(limit=5, window_seconds=3600)
+#: Also raised for shared-NAT offices onboarding a team in one sitting.
+register_limiter = SlidingWindowLimiter(limit=20, window_seconds=3600)
 
 
 def client_key(request, suffix: str = "") -> str:

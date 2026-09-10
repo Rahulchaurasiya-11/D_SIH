@@ -41,9 +41,9 @@ def clear_rate_limits():
     whichever login test happens to run after it — a failure that depends on file
     ordering and would appear random.
     """
-    from app.core.ratelimit import login_limiter, register_limiter
+    from app.core.ratelimit import login_email_limiter, login_ip_limiter, register_limiter
 
-    for limiter in (login_limiter, register_limiter):
+    for limiter in (login_email_limiter, login_ip_limiter, register_limiter):
         with limiter._lock:
             limiter._hits.clear()
     yield

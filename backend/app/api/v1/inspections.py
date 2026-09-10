@@ -61,6 +61,22 @@ def _summarise(doc: Dict[str, Any]) -> InspectionSummary:
     )
 
 
+def _case_fields(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    The identifiers a client needs after a scan.
+
+    Every scan route returns the same keys. They used to differ - only the image
+    route echoed the case number - so a text or listing scan looked like it had
+    opened no case when it had.
+    """
+    return {
+        "inspection_id": doc["id"],
+        "case_number": doc.get("case_number", ""),
+        "case_status": doc.get("case_status", ""),
+        "premises_name": doc.get("premises_name", ""),
+    }
+
+
 def _parse_context(raw: str) -> Dict[str, Any]:
     """
     Validates the multipart `context` field against `InspectionContext`.
@@ -226,10 +242,7 @@ async def analyze_package(
         doc = repo.inspections.create(
             payload, user, evidence_records, source="image", context=inspection_context,
         )
-        payload["inspection_id"] = doc["id"]
-        payload["case_number"] = doc["case_number"]
-        payload["case_status"] = doc["case_status"]
-        payload["premises_name"] = doc["premises_name"]
+        payload.update(_case_fields(doc))
         repo.audit_log.record(user["id"], user.get("full_name", ""), "SCAN_CREATED", doc["id"],
                               "status=%s score=%s case=%s"
                               % (payload["status"], payload["overall_score"], doc["case_number"] or "-"))
@@ -259,7 +272,7 @@ def analyze_text(payload: TextAnalysisRequest, user: Dict[str, Any] = Depends(ge
 
     if payload.persist:
         doc = repo.inspections.create(result, user, [], source=payload.source or "text")
-        result["inspection_id"] = doc["id"]
+        result.update(_case_fields(doc))
     return result
 
 
@@ -296,7 +309,7 @@ def analyze_listing(payload: ListingAnalysisRequest, user: Dict[str, Any] = Depe
 
     if payload.persist:
         doc = repo.inspections.create(result, user, [], source="listing")
-        result["inspection_id"] = doc["id"]
+        result.update(_case_fields(doc))
     return result
 
 
