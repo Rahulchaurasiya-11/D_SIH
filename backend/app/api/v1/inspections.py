@@ -271,7 +271,10 @@ def analyze_text(payload: TextAnalysisRequest, user: Dict[str, Any] = Depends(ge
                             extra={"source": payload.source})
 
     if payload.persist:
-        doc = repo.inspections.create(result, user, [], source=payload.source or "text")
+        doc = repo.inspections.create(
+            result, user, [], source=payload.source or "text",
+            context=payload.context.model_dump() if payload.context else None,
+        )
         result.update(_case_fields(doc))
     return result
 
@@ -308,7 +311,14 @@ def analyze_listing(payload: ListingAnalysisRequest, user: Dict[str, Any] = Depe
     })
 
     if payload.persist:
-        doc = repo.inspections.create(result, user, [], source="listing")
+        context = payload.context.model_dump() if payload.context else {}
+        # An e-commerce finding's "premises" is the platform, when nothing else is given.
+        if payload.platform and not context.get("premises_name"):
+            context["premises_name"] = payload.platform
+            context.setdefault("premises_type", "ECOMMERCE")
+        if payload.source_url and not context.get("premises_address"):
+            context["premises_address"] = payload.source_url
+        doc = repo.inspections.create(result, user, [], source="listing", context=context)
         result.update(_case_fields(doc))
     return result
 

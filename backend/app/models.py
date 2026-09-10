@@ -208,6 +208,9 @@ class TextAnalysisRequest(BaseModel):
     image_dimensions: Optional[List[int]] = None
     source: str = "manual"
     persist: bool = True
+    #: Where the package was found. Typing a label by hand still happens in a
+    #: shop, so this route needs the premises as much as a photo scan does.
+    context: Optional["InspectionContext"] = None
 
 
 class ListingAnalysisRequest(BaseModel):
@@ -225,6 +228,7 @@ class ListingAnalysisRequest(BaseModel):
     platform: str = ""
     product_title: str = ""
     persist: bool = True
+    context: Optional["InspectionContext"] = None
 
 
 class ReAuditRequest(BaseModel):

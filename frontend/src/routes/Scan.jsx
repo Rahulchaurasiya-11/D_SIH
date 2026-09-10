@@ -103,11 +103,15 @@ export default function Scan() {
     try {
       if (mode === 'text') {
         setStatusText(t('scan.analysing'));
-        setResult(await api.scan.text({ raw_text: labelText, filename: 'Typed label', source: 'manual' }));
+        setResult(
+          await api.scan.text({
+            raw_text: labelText, filename: 'Typed label', source: 'manual', context: premises,
+          }),
+        );
         setLocalFiles(null);
       } else if (mode === 'listing') {
         setStatusText(t('scan.analysing'));
-        setResult(await api.scan.listing(listing));
+        setResult(await api.scan.listing({ ...listing, context: premises }));
         setLocalFiles(null);
       } else {
         setStatusText(t('scan.analysing'));
@@ -294,7 +298,7 @@ export default function Scan() {
         )}
       </Card>
 
-      {mode !== 'text' && <PremisesPanel value={premises} onChange={setPremises} />}
+      <PremisesPanel value={premises} onChange={setPremises} />
 
       <ErrorNote>{error}</ErrorNote>
 
