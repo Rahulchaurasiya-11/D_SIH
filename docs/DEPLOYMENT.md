@@ -128,7 +128,28 @@ reachable by others, do one of:
 Then promote colleagues from **Officers**. Later registrations are always
 INSPECTOR regardless of what the request asks for.
 
-### Step 1 — Backend on Render
+### Already deployed
+
+| | |
+| :--- | :--- |
+| Frontend | <https://legal-metrology-compliance.netlify.app> |
+| API | <https://legal-metrology-api-ft2v.onrender.com> |
+| Region | Render Singapore, free plan, auto-deploys from `main` (~80 s) |
+
+The service runs on Render's **Python** runtime rather than Docker — the MCP
+integration cannot create Docker services, and the native runtime already carries
+what `opencv-python-headless` needs. `render.yaml` remains the Docker blueprint
+for anyone deploying from the dashboard.
+
+Restoring demo data after a restart:
+
+```bash
+cd backend && python scripts/seed_remote.py     --api https://legal-metrology-api-ft2v.onrender.com     --email admin@legalmetrology.gov.in --password '<BOOTSTRAP_ADMIN_PASSWORD>'
+```
+
+---
+
+### Step 1 — Backend on Render (to deploy your own)
 
 1. <https://render.com> → sign in with GitHub
 2. **New → Blueprint** → select this repository → Render reads `render.yaml`

@@ -62,8 +62,12 @@ credentials. **Demonstration only — never deploy these accounts.**
 
 ## Deploy it free
 
-**Live:** <https://legal-metrology-compliance.netlify.app> — frontend only; it
-needs an API before it does anything.
+**Live:** <https://legal-metrology-compliance.netlify.app>
+**API:** <https://legal-metrology-api-ft2v.onrender.com/api/v1/health>
+
+Sign in with the administrator account seeded on first boot
+(`admin@legalmetrology.gov.in`); the password is the `BOOTSTRAP_ADMIN_PASSWORD`
+set on Render. **Change it before sharing the URL.**
 
 The backend cannot go on Vercel or Netlify: its OCR dependencies are ~211 MB
 against a 250 MB function limit, and a scan takes 10–15 s against a 10 s timeout.
@@ -72,13 +76,20 @@ Vercel and Netlify are equivalent for that, and both configs ship here.
 
 | | |
 | :--- | :--- |
-| Frontend | ✅ deployed to Netlify (`netlify.toml`). Vercel works too (`vercel.json`). |
-| Backend | Render → **New → Blueprint** → this repo. `render.yaml` configures it. |
-| Then | Set `VITE_API_URL` on the frontend, and `CORS_ORIGINS` on Render. |
+| Frontend | ✅ Netlify (`netlify.toml`). Vercel works too (`vercel.json`). |
+| Backend | ✅ Render, Singapore, free plan, auto-deploys from `main`. |
+| Wiring | `VITE_API_URL` on Netlify, `CORS_ORIGINS` on Render — both set. |
 
-> **Claim the admin account first.** The first account created on an empty system
-> becomes ADMIN, so on a public URL that is a race. Set
-> `BOOTSTRAP_ADMIN_PASSWORD` on Render, or register the instant the API is live.
+> **Render's free disk is ephemeral.** Inspections and evidence are lost whenever
+> the instance sleeps (15 minutes idle) or redeploys. Set `MONGODB_URI` to an
+> Atlas free cluster to keep them. Until then, restore a demo in a minute:
+>
+> ```bash
+> cd backend && python scripts/seed_remote.py >     --api https://legal-metrology-api-ft2v.onrender.com >     --email admin@legalmetrology.gov.in --password '<your password>'
+> ```
+
+> **Cold start.** The free instance sleeps after 15 minutes idle; the next request
+> waits ~50 s. Open the app a minute before demoing.
 
 Step-by-step, including what the free tier costs you (cold starts, ephemeral
 disk), is in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#4-free-tier-deployment-vercel--render).
