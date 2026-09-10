@@ -110,7 +110,23 @@ Both are excellent for the frontend and unusable for this API:
 Even if it squeezed under the size limit, every scan would time out. The backend
 needs a container host; the frontend is a static bundle and belongs on a CDN.
 
-**So: frontend → Vercel, backend → Render.** Both free, no card.
+**So: frontend → a CDN, backend → a container host.** Both free, no card.
+
+For the CDN, Vercel and Netlify are equivalent for a static SPA — this repo ships
+`vercel.json` and `netlify.toml`, so either works. The live deployment is on
+Netlify: <https://legal-metrology-compliance.netlify.app>
+
+### ⚠️ Claim the administrator account before sharing the URL
+
+Self-registration is open, and **the first account created on an empty system
+becomes ADMIN**. On a public URL that is a race anyone can win. Before the API is
+reachable by others, do one of:
+
+- set `BOOTSTRAP_ADMIN_PASSWORD` on Render, so the admin exists from first boot; or
+- register your own account the moment the API goes live.
+
+Then promote colleagues from **Officers**. Later registrations are always
+INSPECTOR regardless of what the request asks for.
 
 ### Step 1 — Backend on Render
 
@@ -124,18 +140,37 @@ needs a container host; the frontend is a static bundle and belongs on a CDN.
 
 Check it: `curl https://<your-api>.onrender.com/api/v1/health`
 
-### Step 2 — Frontend on Vercel
+### Step 2 — Frontend
 
-1. <https://vercel.com> → **Add New → Project** → import this repository
-2. Vercel reads `vercel.json`; leave the build settings alone
-3. Add an environment variable:
-   `VITE_API_URL = https://<your-api>.onrender.com`
-4. Deploy
+Already deployed: <https://legal-metrology-compliance.netlify.app>
 
-### Step 3 — Close the loop
+To redeploy after changes, from the repository root:
 
-Go back to Render → the service → **Environment** → set
-`CORS_ORIGINS = https://<your-app>.vercel.app` and save. The service restarts.
+```bash
+npx -y netlify-cli deploy --build --prod --dir frontend
+```
+
+Or connect the repository in the Netlify dashboard (**Project configuration →
+Build & deploy → Link repository**) for automatic deploys on every push;
+`netlify.toml` already carries the build settings.
+
+On Vercel instead: **Add New → Project** → import the repository. It reads
+`vercel.json`; leave the build settings alone.
+
+### Step 3 — Point the two at each other
+
+**On the frontend host**, set `VITE_API_URL = https://<your-api>.onrender.com`
+and redeploy. Until then the app defaults to `http://localhost:8000` and shows
+"Server unreachable".
+
+> No redeploy handy? The **Settings** screen changes the API address at runtime,
+> stored per browser. Useful for a quick demo, but set the build variable for
+> anything shared.
+
+**On Render**, set `CORS_ORIGINS` to the exact frontend origin
+(`https://legal-metrology-compliance.netlify.app`, no trailing slash) and save.
+The service restarts. A wildcard is rejected in config because the API sends
+credentials.
 
 Then open the Vercel URL, register the first account (it becomes ADMIN), and scan.
 
@@ -242,3 +277,5 @@ within roughly a hundred inspections.
 | Render build fails on memory | Free build container ran out during pip install | Retry — Render's free builder is variable — or build the image elsewhere and deploy by digest |
 | Deployed app shows "Server unreachable" | `CORS_ORIGINS` on Render does not list the Vercel origin | Set it to the exact `https://…vercel.app` origin, no trailing slash |
 | Data disappeared after a redeploy | Free disk is ephemeral and `MONGODB_URI` is unset | Point it at MongoDB Atlas |
+| `netlify` CLI fails with `EXDEV` or `ENOSPC` | The system drive is full, so npm's cache and temp cannot be written | Free space, or redirect: `npm_config_cache`, `TEMP`, `TMP`, `APPDATA` to a drive with room |
+| Netlify deploy returns 500 | The whole repo was zipped, `node_modules` included (~174 MB) | Deploy the `frontend` subtree, or ensure `node_modules` is excluded |

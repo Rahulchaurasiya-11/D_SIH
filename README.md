@@ -62,15 +62,23 @@ credentials. **Demonstration only — never deploy these accounts.**
 
 ## Deploy it free
 
-**Frontend → Vercel. Backend → Render.** The backend cannot go on Vercel or
-Netlify: its OCR dependencies are ~211 MB against a 250 MB function limit, and a
-scan takes 10–15 s against a 10 s timeout. It needs a container.
+**Live:** <https://legal-metrology-compliance.netlify.app> — frontend only; it
+needs an API before it does anything.
+
+The backend cannot go on Vercel or Netlify: its OCR dependencies are ~211 MB
+against a 250 MB function limit, and a scan takes 10–15 s against a 10 s timeout.
+It needs a container. The frontend is a static bundle and belongs on a CDN —
+Vercel and Netlify are equivalent for that, and both configs ship here.
 
 | | |
 | :--- | :--- |
+| Frontend | ✅ deployed to Netlify (`netlify.toml`). Vercel works too (`vercel.json`). |
 | Backend | Render → **New → Blueprint** → this repo. `render.yaml` configures it. |
-| Frontend | Vercel → **Add New → Project** → this repo. Set `VITE_API_URL` to the Render URL. |
-| Then | Set `CORS_ORIGINS` on Render to the Vercel origin. |
+| Then | Set `VITE_API_URL` on the frontend, and `CORS_ORIGINS` on Render. |
+
+> **Claim the admin account first.** The first account created on an empty system
+> becomes ADMIN, so on a public URL that is a race. Set
+> `BOOTSTRAP_ADMIN_PASSWORD` on Render, or register the instant the API is live.
 
 Step-by-step, including what the free tier costs you (cold starts, ephemeral
 disk), is in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#4-free-tier-deployment-vercel--render).
