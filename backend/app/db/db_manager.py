@@ -17,7 +17,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 logger = logging.getLogger("legal_metrology_db")
 
 # Base directory for datasets
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+# app/db/db_manager.py -> ../data  (i.e. backend/app/data)
+DATA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"
+)
 RULES_CSV_PATH = os.path.join(DATA_DIR, "legal_metrology_rules.csv")
 APPROVED_UNITS_CSV_PATH = os.path.join(DATA_DIR, "approved_metric_units.csv")
 PROHIBITED_UNITS_CSV_PATH = os.path.join(DATA_DIR, "prohibited_imperial_units.csv")
@@ -29,8 +32,11 @@ LIVE_AUDITS_CSV_PATH = os.path.join(DATA_DIR, "recent_audits_live.csv")
 # Maximum records to keep in temporary live audits CSV (FIFO buffer)
 MAX_LIVE_AUDIT_RECORDS = 50
 
-# MongoDB Configuration
-DEFAULT_MONGODB_URI = "mongodb+srv://rahulteam320_db_user:cHeLpulLNmDxOzKK@cluster0.ynp7koc.mongodb.net/legal_metrology_db?retryWrites=true&w=majority&appName=Cluster0"
+# MongoDB Configuration.
+# NOTE: there is deliberately NO hardcoded connection string here. Credentials are
+# read from the environment only (see backend/.env.example). If MONGODB_URI is not
+# set the manager degrades to the local CSV store instead of silently connecting
+# to somebody else's cluster.
 DEFAULT_DB_NAME = "legal_metrology_db"
 
 
@@ -77,8 +83,15 @@ class DatabaseManager:
 
     def _init_mongodb(self):
         """Initializes MongoDB connection using environment variable or default URI."""
-        mongo_uri = os.environ.get("MONGODB_URI", DEFAULT_MONGODB_URI)
+        mongo_uri = os.environ.get("MONGODB_URI", "").strip()
         db_name = os.environ.get("MONGODB_DB_NAME", DEFAULT_DB_NAME)
+
+        if not mongo_uri:
+            logger.warning(
+                "MONGODB_URI is not set - running on the local CSV data store only. "
+                "Copy backend/.env.example to backend/.env to enable MongoDB."
+            )
+            return
         
         if mongo_uri:
             try:

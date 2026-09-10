@@ -1126,22 +1126,30 @@ class LegalMetrologyComplianceEngine:
                 "data": {"email": None, "phone": None}
             }
 
-        # Case 2: Contact channel detected (e.g. care@ email or phone number)
+        # Case 2: One channel present, the other absent.
+        # Rule 6(1)(g) as amended requires the name, address, telephone number AND
+        # e-mail address of the person/office handling consumer complaints. A single
+        # channel therefore is not full compliance - it is a MEDIUM contravention,
+        # not merely an advisory.
         if not valid_email and valid_phone:
-            warnings.append({
-                "rule_id": "RULE_6_1_G_EMAIL_ADVISORY",
-                "rule_name": "Rule 6(1)(g) - Consumer Grievance Email Channel Advisory",
-                "severity": "LOW",
-                "description": f"Telephonic helpline ({valid_phone}) verified. Dedicating an explicit consumer grievance email address (e.g. care@company.in) is recommended under Rule 6(1)(g).",
-                "recommendation": "Mention a dedicated consumer care email address prominently on the label."
+            violations.append({
+                "rule_id": "RULE_6_1_G_EMAIL_MISSING",
+                "rule_name": "Rule 6(1)(g) - Consumer Grievance E-mail Address Missing",
+                "severity": "MEDIUM",
+                "legal_reference": "Legal Metrology (Packaged Commodities) Rules, 2011 - Rule 6(1)(g)",
+                "description": f"Telephonic helpline ({valid_phone}) was found, but no consumer grievance e-mail address is declared. Rule 6(1)(g) requires both.",
+                "found_text": f"Helpline: {valid_phone} | E-mail: none detected",
+                "remediation": "Print a dedicated consumer care e-mail address (e.g. care@company.in) alongside the helpline."
             })
         elif valid_email and not valid_phone:
-            warnings.append({
-                "rule_id": "RULE_6_1_G_HELPLINE_ADVISORY",
-                "rule_name": "Rule 6(1)(g) - Consumer Helpline Number Advisory",
-                "severity": "LOW",
-                "description": f"Consumer care email ({valid_email}) verified. Providing a dedicated telephonic helpline / toll-free number is recommended under Rule 6(1)(g).",
-                "recommendation": "Provide a telephonic helpline number (e.g. 1800-XXX-XXXX or local office phone) for consumer queries."
+            violations.append({
+                "rule_id": "RULE_6_1_G_HELPLINE_MISSING",
+                "rule_name": "Rule 6(1)(g) - Consumer Helpline Number Missing",
+                "severity": "MEDIUM",
+                "legal_reference": "Legal Metrology (Packaged Commodities) Rules, 2011 - Rule 6(1)(g)",
+                "description": f"Consumer care e-mail ({valid_email}) was found, but no telephone helpline is declared. Rule 6(1)(g) requires both.",
+                "found_text": f"E-mail: {valid_email} | Helpline: none detected",
+                "remediation": "Print a telephonic helpline or toll-free number (e.g. 1800-XXX-XXXX) alongside the e-mail address."
             })
 
         evidence_parts = []
@@ -1153,7 +1161,7 @@ class LegalMetrologyComplianceEngine:
             evidence_parts.append("Web Portal Declared")
 
         return {
-            "passed": True,
+            "passed": not violations,
             "check": {
                 "rule_id": "RULE_6_1_G",
                 "rule_name": "Rule 6(1)(g) - Consumer Grievance Redressal",
@@ -1190,18 +1198,37 @@ class LegalMetrologyComplianceEngine:
                 found_date_str = match.group(1) if match.lastindex else match.group(0)
                 break
 
-        has_mfg_keyword = any(kw in full_text_lower for kw in self.mfg_keywords)
+        # Word-boundary matching. A plain substring test matches "lot" inside
+        # "Plot 14" of a postal address and wrongly satisfies the rule.
+        has_mfg_keyword = any(
+            re.search(r"" + re.escape(kw) + r"", full_text_lower)
+            for kw in self.mfg_keywords
+        )
 
-        if not found_date_str and not has_mfg_keyword:
-            violations.append({
-                "rule_id": "RULE_6_1_C_MISSING_DATE",
-                "rule_name": "Rule 6(1)(c) - Manufacturing / Packaging Date Missing",
-                "severity": "HIGH",
-                "legal_reference": "Legal Metrology (Packaged Commodities) Rules, 2011 - Rule 6(1)(c)",
-                "description": "Month and Year of manufacture, packaging, or import is not declared on the package.",
-                "found_text": "None detected",
-                "remediation": "Print Month and Year of manufacture / packaging clearly (e.g., 'Mfd. on : 04/2025' or 'Mfg Date: 03/2026')."
-            })
+        if not found_date_str:
+            if has_mfg_keyword:
+                # A date label is printed but no month/year could be read. Rule 6(1)(c)
+                # requires the actual month and year, so this cannot pass automatically -
+                # it needs an officer to read the pack.
+                violations.append({
+                    "rule_id": "RULE_6_1_C_UNREADABLE_DATE",
+                    "rule_name": "Rule 6(1)(c) - Manufacturing / Packaging Date Not Readable",
+                    "severity": "MEDIUM",
+                    "legal_reference": "Legal Metrology (Packaged Commodities) Rules, 2011 - Rule 6(1)(c)",
+                    "description": "A manufacturing/packing date label was found but no valid month and year could be extracted. Requires physical verification.",
+                    "found_text": "Date keyword present, month/year not readable",
+                    "remediation": "Verify the printed month and year on the pack. Ensure it is declared legibly as 'Mfd. on : 04/2025' or 'Pkd: 03/2026'."
+                })
+            else:
+                violations.append({
+                    "rule_id": "RULE_6_1_C_MISSING_DATE",
+                    "rule_name": "Rule 6(1)(c) - Manufacturing / Packaging Date Missing",
+                    "severity": "HIGH",
+                    "legal_reference": "Legal Metrology (Packaged Commodities) Rules, 2011 - Rule 6(1)(c)",
+                    "description": "Month and Year of manufacture, packaging, or import is not declared on the package.",
+                    "found_text": "None detected",
+                    "remediation": "Print Month and Year of manufacture / packaging clearly (e.g., 'Mfd. on : 04/2025' or 'Mfg Date: 03/2026')."
+                })
             return {
                 "passed": False,
                 "violations": violations,
