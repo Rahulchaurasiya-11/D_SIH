@@ -1,100 +1,177 @@
-# ⚖️ Legal Metrology Compliance Auditing System
-### Automated AI Statutory Auditing Engine under the Legal Metrology (Packaged Commodities) Rules, 2011
+# Legal Metrology Compliance System
 
-Built for **Smart India Hackathon (SIH 2026)** to automate legal enforcement, detect packaging infringements, protect consumer rights, and streamline inspection procedures for Legal Metrology officers.
+**Smart India Hackathon 2026 · Problem Statement 26034**
+Ministry of Consumer Affairs, Food & Public Distribution — Department of Consumer Affairs
 
----
-
-## 📌 Problem Statement Overview
-Under the **Legal Metrology Act, 2009** and **Legal Metrology (Packaged Commodities) Rules, 2011 (as amended 2021/2022)**, every pre-packaged commodity sold in India must strictly bear mandatory statutory declarations. Violations attract compounding penalties and legal prosecution under **Section 36(1)** of the Act.
-
-Manual inspection of millions of retail and e-commerce SKUs is infeasible. This platform provides an **end-to-end automated compliance auditor** that ingests package images or scans, runs high-precision OCR extraction, and rigorously verifies 5 statutory legal pipelines.
+Scan a packaged commodity, and the system checks it against the mandatory
+declarations required by the **Legal Metrology (Packaged Commodities) Rules, 2011** —
+then produces a compliance report an enforcement officer can actually issue.
 
 ---
 
-## 🚀 Key Statutory Pipelines Implemented
+## What it does
 
-| Rule | Legal Requirement | Automated Verification Mechanism | Infringement Classification |
-| :--- | :--- | :--- | :--- |
-| **Rule 6(1)(da)** | **Maximum Retail Price (MRP)** | Validates presence of exact price (`₹`/`Rs.`) **AND** mandatory statutory suffix `"Inclusive of all taxes"` / `"Incl. of all taxes"`. | `HIGH SEVERITY`: Missing Tax Suffix / Missing MRP |
-| **Rule 11 & 12** | **Net Quantity Standards** | Enforces approved SI metric units (`g`, `kg`, `ml`, `l`, `units`, `pcs`, `N`). Detects and instantly flags prohibited imperial units (`oz`, `fl oz`, `lbs`, `pt`, `gal`). | `HIGH SEVERITY`: Prohibited Non-Metric Imperial Units |
-| **Rule 6(1)(g)** | **Consumer Grievance Redressal** | Verifies presence of Consumer Care keywords and enforces **concurrent** presence of both valid **Email (`@` domain)** and **Telephone Helpline / Toll-Free Number**. | `HIGH / MEDIUM`: Incomplete Redressal Mechanism |
-| **Rule 6(1)(c)** | **Manufacturing / Packaging Timeline** | Parses month/year metadata (`MM/YY`, `MM/YYYY`, `Month-Year`, `Pkd`, `Mfg Date`) and validates timeline legitimacy (anti-predating check). | `HIGH`: Missing Date of Packaging |
-| **Rule 9 & Sched II** | **Font Size & Aspect Estimation** | Estimates character bounding box height relative to the Principal Display Panel (PDP) to ensure declarations meet statutory minimum height rules. | `LOW / ADVISORY`: Micro-font / Ill-proportioned layout |
-
----
-
-## 🏗️ System Architecture
-
-```
-SIH26/
-├── backend/
-│   ├── compliance_engine.py   # Core LegalMetrologyComplianceEngine class with 5 rule pipelines
-│   ├── main.py                # FastAPI REST API with PaddleOCR pipeline & sample presets
-│   ├── test_engine.py         # Automated verification test suite
-│   └── requirements.txt       # Production pip dependencies
-│
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx            # High-fidelity Compliance Auditor Dashboard
-│   │   ├── index.css          # Cyber-legal dark theme & glassmorphism styles
-│   │   └── main.jsx           # React DOM root mount
-│   ├── index.html             # HTML entrypoint with Inter font
-│   ├── package.json           # Frontend package definitions
-│   ├── tailwind.config.js     # Custom Tailwind color palette & animations
-│   └── vite.config.js         # Vite configuration
-│
-├── run_system.bat             # 1-Click launcher for Windows
-└── README.md                  # System Documentation & SIH Guide
-```
+| | |
+| :--- | :--- |
+| **Scan** | 1–4 package angles from a phone camera or upload. Also accepts typed label text or a pasted e-commerce listing. |
+| **Extract** | OCR across five image variants (upscale, unsharp mask, CLAHE ×2, Otsu) fused into one reading, so blur, glare and faint print still resolve. |
+| **Rule** | Seven statutory pipelines decide compliance and cite the provision, the evidence and the remedy for every finding. |
+| **Show** | Bounding boxes drawn over the photograph, so an officer sees exactly where each declaration was read from. |
+| **Correct** | Any OCR misread can be corrected and the rules re-run, so a bad frame never becomes a wrongful notice. |
+| **Report** | PDF with real selectable text, an **editable Word notice**, and bulk Excel export. |
+| **Track** | Searchable repository of every inspection, an enforcement dashboard, and role-based access for Inspector / Senior Officer / Administrator. |
 
 ---
 
-## ⚡ Quick Start & Execution
+## Quick start
 
-### 1. Launch Everything with 1-Click (Windows)
-Double-click `run_system.bat` or run:
-```bat
-.\run_system.bat
-```
-
-### 2. Manual Launch
-
-#### Backend:
 ```bash
+# Backend
 cd backend
 python -m pip install -r requirements.txt
-python test_engine.py
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-- **API Documentation (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Health Endpoint**: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+cp .env.example .env                 # leave MONGODB_URI blank to run with no database
+python -m uvicorn app.main:app --reload --port 8000
 
-#### Frontend:
-```bash
+# Frontend (new terminal)
 cd frontend
 npm install
 npm run dev
 ```
-- **Frontend Dashboard**: [http://localhost:5173](http://localhost:5173)
+
+- App — <http://localhost:5173>
+- API docs — <http://localhost:8000/docs>
+
+Windows one-click: `run_system.bat`
+
+### Demo data
+
+```bash
+cd backend && python scripts/seed_demo.py
+```
+
+Seeds three officers and 24 inspections across 30 days, and prints the login
+credentials. **Demonstration only — never deploy these accounts.**
+
+> With `MONGODB_URI` blank the system stores everything in local JSON files. It is
+> fully functional with no database, no credentials and no network — which is what
+> you want when the venue Wi-Fi fails.
 
 ---
 
-## 🎯 SIH Jury Presentation & Demo Workflow
+## Problem statement coverage
 
-1. Open **[http://localhost:5173](http://localhost:5173)**.
-2. Under **"SIH Fast-Demo Test Scenarios"** on the left panel:
-   - **Click Test Case 1 (`✅ 100% Fully Compliant Indian FMCG`)**: Observe the glowing green `🟢 PACKAGE COMPLIANT` badge, 100/100 score, and all passed clearances.
-   - **Click Test Case 2 (`❌ Severe Infringement: Prohibited Imperial Units`)**: Notice how the system flags `Rule 11 & 12` violation for `fl oz / oz` with Section 36 penalty citation.
-   - **Click Test Case 3 (`❌ Statutory Breach: Missing Tax Suffix on MRP`)**: Shows instant detection of `Rule 6(1)(da)` for missing `"Inclusive of all taxes"`.
-   - **Click Test Case 4 (`❌ Statutory Breach: Missing Customer Care Helpline`)**: Shows missing telephonic helpline detection under `Rule 6(1)(g)`.
-3. In the **"Legal Notice"** tab, click **"Print Official Metrology Audit Notice"** to showcase the instant official government notice generation ready for enforcement officers.
-4. Upload any custom real-world package photo using the drag-and-drop zone.
+| Required capability | Where |
+| :--- | :--- |
+| Image upload and product scanning | Scan screen · `POST /analyze-package` |
+| Extraction and detection of mandatory declarations | `app/engine/compliance_engine.py` |
+| Correctness, completeness, placement | 7 rule pipelines; panel-relative geometry |
+| Missing / non-compliant declarations | Violation cards with citation, evidence, remedy |
+| Font size and readability | Rule 9 pipeline — **advisory estimate**, see below |
+| Compliance reports and violation summaries | `app/services/report_*.py` |
+| Repository of scanned products and history | Repository screen · `GET /inspections` |
+| Search and retrieval | Full-text + status, rule, date, score, officer, source |
+| Dashboards for enforcement officials | Dashboard screen · `GET /dashboard/stats` |
+| Role-based access and secure authentication | JWT + bcrypt, 3 roles, enforced server-side |
+| Export to PDF **and editable formats** | PDF · DOCX · XLSX |
+| Photographs and supporting evidence | Downscaled and stored, linked to the inspection |
+| Product listings (e-commerce) | `POST /analyze-listing` |
+| Technical documentation | [`docs/`](docs/) |
 
 ---
 
-## 🛡️ Statutory Legal References
-- *The Legal Metrology Act, 2009 (No. 1 of 2010)*
-- *Legal Metrology (Packaged Commodities) Rules, 2011 (G.S.R. 202(E))*
-- *Legal Metrology (Packaged Commodities) Amendment Rules, 2021 & 2022*
-- *Department of Consumer Affairs, Ministry of Consumer Affairs, Food & Public Distribution, Government of India*
+## An honest limitation
+
+Rule 9 and Schedule II prescribe minimum character heights **in millimetres**.
+
+A photograph has no physical scale. Without a reference object of known size in the
+frame, or the pack's real dimensions, millimetres cannot be derived from pixels.
+
+So the system reports font findings as an **advisory estimate** based on character
+height relative to the display panel, labels them as such in the report, and treats
+them as a screening signal — it tells an officer which packs to go and measure. It
+does not print an invented millimetre figure.
+
+Full details, and how to make the check definitive, are in
+[`docs/RULE_COVERAGE.md`](docs/RULE_COVERAGE.md).
+
+---
+
+## Architecture
+
+```
+backend/
+  app/
+    main.py            application wiring only
+    config.py          settings; secrets from the environment, never in code
+    deps.py            authentication and role enforcement
+    api/v1/            auth · inspections · reports · rules
+    core/              ocr.py · security.py
+    engine/            compliance_engine.py  ← the statutory rules
+    services/          report_pdf · report_docx · report_xlsx · listing_parser
+    db/                store (MongoDB | JSON) → repositories
+    data/              rule set as CSV, hot-reloadable
+  tests/               51 tests, no network, no credentials
+  scripts/seed_demo.py
+
+frontend/src/
+  App.jsx              router and providers (~100 lines)
+  routes/              Login · Dashboard · Scan · Inspection · Repository ·
+                       Rules · Officers · Settings
+  features/scan/       capture slots · evidence viewer · result · verify panel
+  components/          ui primitives · app shell
+  context/             Auth · Theme · I18n
+  lib/                 api.js (the only HTTP client) · browserOcr.js · format.js
+  locales/             en, hi complete; 11 more fall back per key
+  styles/tokens.css    light and dark design tokens
+```
+
+Two principles worth stating:
+
+**One rule engine.** The browser can read text when the server is unreachable, but
+it never decides compliance — that text goes to the server and the Python engine
+rules on it. A phone and the server must not be able to disagree about whether a
+package is lawful.
+
+**Rules live in data.** The statutory rule set is CSV under `backend/app/data/`. An
+officer can change a penalty band or add a regional keyword and hit *Reload from
+CSV* — no developer, no redeploy.
+
+---
+
+## Documentation
+
+| | |
+| :--- | :--- |
+| [Architecture](docs/ARCHITECTURE.md) | Components, data flow, design decisions, security |
+| [Deployment](docs/DEPLOYMENT.md) | Local, Docker, Vercel + container host, checklist |
+| [API reference](docs/API.md) | Every endpoint with examples |
+| [Rule coverage](docs/RULE_COVERAGE.md) | Provision-by-provision status and tests |
+
+---
+
+## Tests
+
+```bash
+cd backend && pytest -v      # 51 tests
+```
+
+Golden cases pin the verdict for each statutory provision, so a future rule edit
+that changes an outcome fails loudly instead of silently.
+
+---
+
+## Statutory references
+
+- The Legal Metrology Act, 2009 (No. 1 of 2010)
+- Legal Metrology (Packaged Commodities) Rules, 2011 — G.S.R. 202(E)
+- Legal Metrology (Packaged Commodities) Amendment Rules, 2021 and 2022
+- <https://consumeraffairs.gov.in/pages/legal-metrology-act>
+
+---
+
+## Note on findings
+
+This system assists inspection; it does not replace it. Findings are derived from
+optical character recognition and are intended to help an authorised officer decide
+where to look. Every report carries that statement, and anything marked *advisory*
+requires physical verification before enforcement action.
