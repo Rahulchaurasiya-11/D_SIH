@@ -60,6 +60,26 @@ credentials. **Demonstration only — never deploy these accounts.**
 
 ---
 
+## Deploy it free
+
+**Frontend → Vercel. Backend → Render.** The backend cannot go on Vercel or
+Netlify: its OCR dependencies are ~211 MB against a 250 MB function limit, and a
+scan takes 10–15 s against a 10 s timeout. It needs a container.
+
+| | |
+| :--- | :--- |
+| Backend | Render → **New → Blueprint** → this repo. `render.yaml` configures it. |
+| Frontend | Vercel → **Add New → Project** → this repo. Set `VITE_API_URL` to the Render URL. |
+| Then | Set `CORS_ORIGINS` on Render to the Vercel origin. |
+
+Step-by-step, including what the free tier costs you (cold starts, ephemeral
+disk), is in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md#4-free-tier-deployment-vercel--render).
+
+> For judging, run it locally (`docker compose up` or `run_system.bat`). No cold
+> start, no Wi-Fi dependency. Keep the deployed URL for sharing.
+
+---
+
 ## Problem statement coverage
 
 | Required capability | Where |

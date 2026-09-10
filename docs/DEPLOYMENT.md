@@ -95,9 +95,64 @@ at runtime.
 
 ---
 
-## 4. Production deployment
+## 4. Free-tier deployment (Vercel + Render)
 
-### 4.1 Frontend — Vercel
+### Why the backend cannot go on Vercel or Netlify
+
+Both are excellent for the frontend and unusable for this API:
+
+| | Vercel / Netlify functions | This backend needs |
+| :--- | :--- | :--- |
+| Bundle size | 250 MB unzipped | ~211 MB of OCR deps (opencv 108, onnxruntime 43, numpy 31) **before** FastAPI, ReportLab, python-docx |
+| Request timeout | 10 s (Hobby / free) | 10–15 s per scan — five preprocessing variants through OCR |
+| Filesystem | read-only, ephemeral | model weights, evidence blobs |
+
+Even if it squeezed under the size limit, every scan would time out. The backend
+needs a container host; the frontend is a static bundle and belongs on a CDN.
+
+**So: frontend → Vercel, backend → Render.** Both free, no card.
+
+### Step 1 — Backend on Render
+
+1. <https://render.com> → sign in with GitHub
+2. **New → Blueprint** → select this repository → Render reads `render.yaml`
+3. Set the two values it asks for:
+   - `CORS_ORIGINS` — leave blank for now, fill in after step 2
+   - `MONGODB_URI` — blank for the bundled JSON store, or an Atlas URI to persist
+4. Deploy. First build takes ~5 minutes (the OCR image is large).
+5. Note the URL, e.g. `https://legal-metrology-api.onrender.com`
+
+Check it: `curl https://<your-api>.onrender.com/api/v1/health`
+
+### Step 2 — Frontend on Vercel
+
+1. <https://vercel.com> → **Add New → Project** → import this repository
+2. Vercel reads `vercel.json`; leave the build settings alone
+3. Add an environment variable:
+   `VITE_API_URL = https://<your-api>.onrender.com`
+4. Deploy
+
+### Step 3 — Close the loop
+
+Go back to Render → the service → **Environment** → set
+`CORS_ORIGINS = https://<your-app>.vercel.app` and save. The service restarts.
+
+Then open the Vercel URL, register the first account (it becomes ADMIN), and scan.
+
+### What the free tier costs you
+
+| | |
+| :--- | :--- |
+| **Cold starts** | Render free sleeps after 15 minutes idle; the next request waits ~50 s while it wakes. Open the app a minute before a demo. |
+| **Ephemeral disk** | Without `MONGODB_URI`, inspections and evidence are lost on redeploy or sleep. Use Atlas free (512 MB) to keep them. |
+| **512 MB RAM** | One worker only, and the blueprint caps evidence at 1280 px. A larger instance or a host with more RAM (Hugging Face Spaces gives 16 GB free on Docker) removes this. |
+| **Demo risk** | For judging, prefer `docker compose up` or `run_system.bat` locally — no cold start, no Wi-Fi dependency. Keep the deployed URL for sharing. |
+
+---
+
+## 5. Manual production deployment
+
+### 5.1 Frontend — Vercel
 
 `vercel.json` at the repository root builds `frontend/` and rewrites all paths to
 `index.html` for client-side routing.
@@ -108,7 +163,7 @@ Output directory:   frontend/dist
 Environment:        VITE_API_URL = https://<your-api-host>
 ```
 
-### 4.2 Backend — container host (Render, Railway, Fly, any VM)
+### 5.2 Backend — container host (Render, Railway, Fly, any VM)
 
 The backend is **not** deployable to Vercel serverless functions: the OCR model
 weights exceed the bundle limit and cold starts would time out. This is why the
@@ -128,7 +183,7 @@ CORS_ORIGINS=https://<your-frontend-domain>
 MONGODB_URI=<atlas uri>
 ```
 
-### 4.3 Both together — Docker Compose
+### 5.3 Both together — Docker Compose
 
 ```bash
 docker compose up --build
@@ -139,7 +194,7 @@ external service once the images are built.
 
 ---
 
-## 5. MongoDB Atlas
+## 6. MongoDB Atlas
 
 1. Create a cluster and a database user with a **strong, unique** password.
 2. Network Access: add only the IPs that need it. Do **not** use `0.0.0.0/0`.
@@ -155,7 +210,7 @@ within roughly a hundred inspections.
 
 ---
 
-## 6. Security checklist before going public
+## 7. Security checklist before going public
 
 - [ ] `JWT_SECRET_KEY` set to a generated value, not the example
 - [ ] `ENVIRONMENT=production`
@@ -173,7 +228,7 @@ within roughly a hundred inspections.
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
@@ -183,3 +238,7 @@ within roughly a hundred inspections.
 | Frontend shows "Server unreachable" | Wrong API address, or origin not in `CORS_ORIGINS` | Fix in **Settings**, and check the allowlist |
 | Seeded data invisible in a running server | Older builds cached the JSON store indefinitely | Fixed — the store reloads on file change |
 | Scan takes 10–15 s | Five preprocessing variants on a large image | Expected on CPU; downscale, or run fewer variants |
+| First request after idle takes ~50 s | Render free instance was asleep | Expected; open the app before a demo, or upgrade |
+| Render build fails on memory | Free build container ran out during pip install | Retry — Render's free builder is variable — or build the image elsewhere and deploy by digest |
+| Deployed app shows "Server unreachable" | `CORS_ORIGINS` on Render does not list the Vercel origin | Set it to the exact `https://…vercel.app` origin, no trailing slash |
+| Data disappeared after a redeploy | Free disk is ephemeral and `MONGODB_URI` is unset | Point it at MongoDB Atlas |
