@@ -87,10 +87,22 @@ class DatabaseManager:
         db_name = os.environ.get("MONGODB_DB_NAME", DEFAULT_DB_NAME)
 
         if not mongo_uri:
-            logger.warning(
-                "MONGODB_URI is not set - running on the local CSV data store only. "
-                "Copy backend/.env.example to backend/.env to enable MongoDB."
-            )
+            # Blank is the intended setup for a local run, so this is INFO, not a
+            # warning. It used to tell the user to copy .env.example to .env even
+            # when they already had a .env with MONGODB_URI deliberately blank -
+            # advice for a problem they did not have.
+            env_path = os.path.join(os.path.dirname(os.path.dirname(DATA_DIR)), ".env")
+            if os.path.exists(env_path):
+                logger.info(
+                    "MONGODB_URI is blank in backend/.env - using the local data store. "
+                    "Set it to a MongoDB connection string if you want data to persist "
+                    "across machines."
+                )
+            else:
+                logger.info(
+                    "No backend/.env found - using the local data store. Copy "
+                    "backend/.env.example to backend/.env to configure MongoDB."
+                )
             return
         
         if mongo_uri:
