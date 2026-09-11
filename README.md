@@ -45,6 +45,11 @@ npm run dev
 
 Windows one-click: `run_system.bat`
 
+**From VS Code:** open the folder, then `Ctrl+Shift+P` → *Tasks: Run Task* →
+**Run everything**. It starts both servers in their own terminal panes. `F5`
+instead runs the API under the debugger, so you can break inside the rule engine
+and step through a real scan.
+
 ### Demo data
 
 ```bash
