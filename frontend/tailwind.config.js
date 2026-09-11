@@ -1,66 +1,73 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  darkMode: 'class',
+  content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      // Every colour resolves through a CSS variable defined in styles/tokens.css,
+      // so light and dark are one set of class names with two sets of values.
       colors: {
-        legal: {
-              
-
-          dark: "#14171C",     // 🖥️ Niche wala hissa (Main Screen Background)
-          primary: "#1A1D24",  // 🗺️ Upar wala dark hissa (Top Header / Navbar)
-          card: "#1E222A",     // 📦 Content ke Boxes / Cards ka Background
-          border: "#2A303C",   // 🎛️ Patli border lines ka color
-          slate: "#94A3B8", 
-
-
-          // slate: "#94A3B8",    // Clean Light Slate text/subtitles ke liye
-          // dark: "#14171C",     // Main Outer Background (Ultra dark slate)
-          // card: "#1E222A",     // Pure Inside Content Boxes (Matte dark grey)
-          // border: "#2A303C",   // Thin premium divider lines
-          // primary: "#1A1D24",  // Deepest Dark Grey (Top bar header aur navigation ke liye)
-          
-          emerald: "#10B981",  // Emerald for Compliant / Success states
-          amber: "#F59E0B",    // Amber for Warnings
-          crimson: "#EF4444"   // Crimson for Violations
-
-
-
-          // slate: "#1E293B",    // Clean Dark Slate text ke liye
-          // dark: "#F4F6F9",     // Aur thoda behter slate-white background
-          // card: "#FFFFFF",     // Crisp pure white containers
-          // border: "#E2E8F0",   // Clear modern thin borders
-          // primary: "#0A2540",  // Deep Authoritative Navy Blue (Header & primary buttons)
-          // emerald: "#10B981",  // System status indicators
-          // amber: "#F59E0B",    // Warnings
-          // crimson: "#EF4444"   // Violations
-
-
-        }
+        canvas: 'rgb(var(--canvas) / <alpha-value>)',
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+        raised: 'rgb(var(--raised) / <alpha-value>)',
+        line: 'rgb(var(--line) / <alpha-value>)',
+        ink: 'rgb(var(--ink) / <alpha-value>)',
+        muted: 'rgb(var(--muted) / <alpha-value>)',
+        faint: 'rgb(var(--faint) / <alpha-value>)',
+        brand: {
+          DEFAULT: 'rgb(var(--brand) / <alpha-value>)',
+          soft: 'rgb(var(--brand-soft) / <alpha-value>)',
+          ink: 'rgb(var(--brand-ink) / <alpha-value>)',
+          accent: 'rgb(var(--accent) / <alpha-value>)',
+          panel: 'rgb(var(--brand-panel) / <alpha-value>)',
+          'panel-ink': 'rgb(var(--brand-panel-ink) / <alpha-value>)',
+        },
+        ok: {
+          DEFAULT: 'rgb(var(--ok) / <alpha-value>)',
+          soft: 'rgb(var(--ok-soft) / <alpha-value>)',
+        },
+        warn: {
+          DEFAULT: 'rgb(var(--warn) / <alpha-value>)',
+          soft: 'rgb(var(--warn-soft) / <alpha-value>)',
+        },
+        bad: {
+          DEFAULT: 'rgb(var(--bad) / <alpha-value>)',
+          soft: 'rgb(var(--bad-soft) / <alpha-value>)',
+        },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'monospace']
+        sans: ['Inter', 'Noto Sans Devanagari', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
-      animation: {
-        'scan': 'scan 2.5s ease-in-out infinite',
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'glow': 'glow 2s ease-in-out infinite alternate'
+      borderRadius: {
+        DEFAULT: '10px',
+        lg: '12px',
+        xl: '16px',
+      },
+      boxShadow: {
+        card: '0 1px 2px rgb(var(--shadow) / 0.06), 0 1px 3px rgb(var(--shadow) / 0.04)',
+        lift: '0 4px 12px rgb(var(--shadow) / 0.08), 0 2px 4px rgb(var(--shadow) / 0.04)',
+        pop: '0 12px 32px rgb(var(--shadow) / 0.16), 0 4px 8px rgb(var(--shadow) / 0.06)',
       },
       keyframes: {
-        scan: {
-          '0%, 100%': { top: '0%' },
-          '50%': { top: '96%' }
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
-        glow: {
-          '0%': { boxShadow: '0 0 15px rgba(59, 130, 246, 0.3)' },
-          '100%': { boxShadow: '0 0 25px rgba(59, 130, 246, 0.7)' }
-        }
-      }
+        'scan-sweep': {
+          '0%': { transform: 'translateY(-100%)' },
+          '100%': { transform: 'translateY(1000%)' },
+        },
+        shimmer: {
+          '100%': { transform: 'translateX(100%)' },
+        },
+      },
+      animation: {
+        'fade-up': 'fade-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both',
+        'scan-sweep': 'scan-sweep 2s ease-in-out infinite',
+        shimmer: 'shimmer 1.6s infinite',
+      },
     },
   },
   plugins: [],
-}
+};

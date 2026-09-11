@@ -1,100 +1,85 @@
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  * {
+    @apply border-line;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-[#f8fafc] text-slate-900 font-sans antialiased selection:bg-blue-600 selection:text-white;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+    /* Keeps the mobile bottom nav clear of the home indicator. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* One consistent focus ring everywhere, keyboard-only. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-accent ring-offset-2 ring-offset-canvas rounded;
+  }
+
+  ::selection {
+    @apply bg-brand text-brand-ink;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-line rounded-full border-4 border-solid border-transparent bg-clip-content;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-faint bg-clip-content;
   }
 }
 
-/* Custom Clean Scrollbars for Enterprise Theme */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Professional Enterprise Card Styles */
-.gov-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-}
-
-.gov-card-interactive {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  transition: all 0.15s ease-in-out;
-}
-
-.gov-card-interactive:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Strict A4 Page Styles for PDF / Print Output */
-@page {
-  size: A4 portrait;
-  margin: 10mm 12mm 10mm 12mm;
-}
-
-@media print {
-  /* Hide all dashboard UI, header, sidebar, navigation, controls, and footers */
-  html, body {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+@layer components {
+  .card {
+    @apply bg-surface border border-line rounded-lg shadow-card;
   }
 
-  .no-print,
-  header,
-  footer,
-  nav,
-  button,
-  .no-print * {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  .card-interactive {
+    @apply card transition-all duration-150 hover:shadow-lift hover:border-brand/40;
   }
 
-  /* Force display of ONLY the statutory report container */
-  .a4-statutory-report {
-    display: block !important;
-    visibility: visible !important;
-    position: static !important;
-    width: 100% !important;
-    max-width: 190mm !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border: none !important;
-    box-shadow: none !important;
-    page-break-after: avoid !important;
-    page-break-inside: avoid !important;
+  /* Numeric columns: tabular figures stop scores and counts from jittering. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 
-  .a4-statutory-report * {
-    visibility: visible !important;
-    color: #0f172a !important;
+  .skeleton {
+    @apply relative overflow-hidden bg-raised rounded;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: '';
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--surface) / 0.6),
+      transparent
+    );
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

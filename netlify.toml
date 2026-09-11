@@ -1,0 +1,41 @@
+# Netlify configuration for the frontend.
+#
+# Only the frontend goes here. The API needs a container host (see render.yaml):
+# its OCR dependencies are ~211 MB against a 250 MB function limit, and a scan
+# takes 10-15 s against a 10 s function timeout.
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"          # relative to `base`, i.e. frontend/dist
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Client-side routing: every path resolves to index.html, or a deep link like
+# /inspections/insp_123 returns 404 on refresh.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # The scan screen uses the device camera; nothing else is needed.
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=(self)"
+
+# Hashed build assets are immutable; index.html must never be cached or a deploy
+# leaves clients on the previous bundle.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

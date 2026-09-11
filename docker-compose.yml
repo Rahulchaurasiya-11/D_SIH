@@ -1,0 +1,28 @@
+# Runs the whole system with no external service - use this for offline judging.
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Blank MONGODB_URI -> the bundled JSON store, so no database is needed.
+      MONGODB_URI: "${MONGODB_URI:-}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:?set JWT_SECRET_KEY, e.g. python -c \"import secrets;print(secrets.token_urlsafe(48))\"}"
+      ENVIRONMENT: "${ENVIRONMENT:-production}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:5173}"
+    volumes:
+      # Persist inspections and evidence across restarts.
+      - lm_store:/app/app/data/_store
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: "${VITE_API_URL:-http://localhost:8000}"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  lm_store:

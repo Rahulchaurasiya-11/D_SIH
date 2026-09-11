@@ -1,0 +1,102 @@
+/*
+ * Design tokens.
+ *
+ * Light is the default: an inspector uses this in a shop, in daylight, on a phone,
+ * and a government enforcement record should read as a document rather than a
+ * console. Dark is a real, fully specified alternative rather than an inversion.
+ *
+ * Values are space-separated RGB channels so Tailwind's `<alpha-value>` works.
+ */
+
+:root {
+  /* Surfaces */
+  --canvas: 247 249 251;
+  --surface: 255 255 255;
+  --raised: 241 245 249;
+  --line: 226 232 240;
+
+  /* Text */
+  --ink: 15 23 42;
+  --muted: 71 85 105;
+  --faint: 148 163 184;
+
+  /* Brand - Ashoka blue. Authoritative without being a flag pastiche. */
+  --brand: 27 77 137;
+  --brand-soft: 232 240 249;
+  --brand-ink: 255 255 255;
+  --accent: 11 107 203;
+
+  /* Full-bleed identity panel (the sign-in aside). Deliberately does NOT invert
+     for dark mode: --brand lightens there so buttons stay legible, and a large
+     surface painted in it would glare against an otherwise dark page. */
+  --brand-panel: 27 77 137;
+  --brand-panel-ink: 255 255 255;
+
+  /* Status. Chosen for >= 4.5:1 against their soft backgrounds. */
+  --ok: 15 123 79;
+  --ok-soft: 220 252 231;
+  --warn: 180 83 9;
+  --warn-soft: 254 243 199;
+  --bad: 180 35 24;
+  --bad-soft: 254 226 226;
+
+  --shadow: 15 23 42;
+
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: 8 12 20;
+  --surface: 17 24 37;
+  --raised: 27 36 51;
+  --line: 42 54 72;
+
+  --ink: 237 242 248;
+  --muted: 156 172 192;
+  --faint: 105 122 143;
+
+  --brand: 96 158 224;
+  --brand-soft: 24 44 68;
+  --brand-ink: 8 12 20;
+  --accent: 122 179 245;
+  --brand-panel: 13 33 58;
+  --brand-panel-ink: 226 236 248;
+
+  --ok: 74 201 141;
+  --ok-soft: 16 51 38;
+  --warn: 233 168 74;
+  --warn-soft: 58 41 13;
+  --bad: 248 128 118;
+  --bad-soft: 62 24 22;
+
+  --shadow: 0 0 0;
+
+  color-scheme: dark;
+}
+
+/* Respect the OS preference until the user makes an explicit choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --canvas: 8 12 20;
+    --surface: 17 24 37;
+    --raised: 27 36 51;
+    --line: 42 54 72;
+    --ink: 237 242 248;
+    --muted: 156 172 192;
+    --faint: 105 122 143;
+    --brand: 96 158 224;
+    --brand-soft: 24 44 68;
+    --brand-ink: 8 12 20;
+    --accent: 122 179 245;
+    --brand-panel: 13 33 58;
+    --brand-panel-ink: 226 236 248;
+    --ok: 74 201 141;
+    --ok-soft: 16 51 38;
+    --warn: 233 168 74;
+    --warn-soft: 58 41 13;
+    --bad: 248 128 118;
+    --bad-soft: 62 24 22;
+    --shadow: 0 0 0;
+    color-scheme: dark;
+  }
+}
